@@ -56,12 +56,15 @@ dependencies {
     implementation fileTree(dir: "libs", include: ["*.jar"])
 
     // React Native dependencies managed by autolinking
-    implementation "com.facebook.react:react-native:+"  // From node_modules
+    implementation project(':ReactAndroid')
 
     // Firebase
     implementation platform('com.google.firebase:firebase-bom:32.3.1')
     implementation 'com.google.firebase:firebase-analytics'
     implementation 'com.google.firebase:firebase-messaging'
+    
+    // WebView (수동 추가)
+    implementation 'org.webkit:android-jsc:+'
 
     // Hermes JS Engine
     if (rootProject.ext.get("hermesEnabled")) {
@@ -71,4 +74,4 @@ dependencies {
     }
 }
 
-apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
+// apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
