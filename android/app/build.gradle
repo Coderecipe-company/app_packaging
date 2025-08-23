@@ -1,32 +1,5 @@
 apply plugin: "com.android.application"
-apply plugin: "com.facebook.react"
 apply plugin: "com.google.gms.google-services"
-
-react {
-    /* Folders */
-    root = file("../")
-    reactNativeDir = file("../../node_modules/react-native")
-    codegenDir = file("../../node_modules/@react-native/codegen")
-    cliFile = file("../../node_modules/@react-native/cli/build/bin.js")
-
-    /* Variants */
-    debuggableVariants = ["liveReload", "staging"]
-
-    /* Bundling */
-    bundleCommand = "ram-bundle"
-    bundleConfig = file("../../metro.config.js")
-    bundleAssetName = "AppPackaging.android.bundle"
-    entryFile = "index.js"
-    extraPackagerArgs = []
-
-    /* Hermes Commands */
-    hermesCommand = "../../node_modules/react-native/sdks/hermesc/%OS-BIN%/hermesc"
-    hermesFlags = ["-O", "-output-source-map"]
-
-    /* Code Push */
-    enableVmCleanup = false
-    deleteDebugFilesForVariant = false
-}
 
 /**
  * This is the configuration block to customize your React Native Android app.
@@ -82,25 +55,19 @@ android {
 dependencies {
     implementation fileTree(dir: "libs", include: ["*.jar"])
 
-    // React Native
-    implementation "com.facebook.react:react-android"
-    implementation "com.facebook.react:flipper-integration"
+    // React Native core
+    implementation project(':ReactAndroid')
 
     // Firebase
     implementation platform('com.google.firebase:firebase-bom:32.3.1')
     implementation 'com.google.firebase:firebase-analytics'
     implementation 'com.google.firebase:firebase-messaging'
 
-    // WebView
-    implementation 'org.webkit:android-jsc:+'
-
-    // Splash Screen
-    implementation 'org.devio.rn:react-native-splash-screen:1.0.10'
-
-    if (hermesEnabled.toBoolean()) {
+    // Hermes JS Engine
+    if (rootProject.ext.get("hermesEnabled")) {
         implementation("com.facebook.react:hermes-android")
     } else {
-        implementation jscFlavor
+        implementation 'org.webkit:android-jsc:+'
     }
 }
 
