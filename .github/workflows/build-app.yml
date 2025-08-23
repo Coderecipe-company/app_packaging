@@ -16,7 +16,7 @@ env:
 jobs:
   build:
     name: Build Mobile App
-    runs-on: ${{ github.event.client_payload.platform == 'ios' && 'macos-13' || 'ubuntu-22.04' }}
+    runs-on: ubuntu-22.04
     
     steps:
     - name: 📥 Checkout repository
@@ -25,15 +25,16 @@ jobs:
     - name: 📋 Display build configuration
       run: |
         echo "🔧 Build Configuration:"
-        echo "  Build ID: ${{ github.event.client_payload.build_id }}"
-        echo "  App Name: ${{ github.event.client_payload.app_name }}"
-        echo "  Package Name: ${{ github.event.client_payload.package_name }}"
-        echo "  Platform: ${{ github.event.client_payload.platform }}"
-        echo "  Build Type: ${{ github.event.client_payload.build_type }}"
-        echo "  Base URL: ${{ github.event.client_payload.base_url }}"
+        echo "  Build ID: ${{ github.event.client_payload.build_id || 'test-build' }}"
+        echo "  App Name: ${{ github.event.client_payload.app_name || 'TestApp' }}"
+        echo "  Package Name: ${{ github.event.client_payload.package_name || 'com.test.app' }}"
+        echo "  Platform: ${{ github.event.client_payload.platform || 'android' }}"
+        echo "  Build Type: ${{ github.event.client_payload.build_type || 'apk' }}"
+        echo "  Base URL: ${{ github.event.client_payload.base_url || github.event.client_payload.app_url || 'https://test.com' }}"
         echo "  Version Name: ${{ github.event.client_payload.version_name || '1.0.0' }}"
         echo "  Version Code: ${{ github.event.client_payload.version_code || '1' }}"
         echo "  Build Number: ${{ github.event.client_payload.build_number || github.event.client_payload.version_code || '1' }}"
+        echo "  Event: ${{ github.event_name }}"
     
     - name: 🟢 Setup Node.js
       uses: actions/setup-node@v4
