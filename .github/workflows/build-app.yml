@@ -80,18 +80,18 @@ jobs:
     # 앱 설정 구성
     - name: 🔧 Configure app settings
       env:
-        BUILD_ID: ${{ github.event.client_payload.build_id }}
-        APP_NAME: ${{ github.event.client_payload.app_name }}
-        PACKAGE_NAME: ${{ github.event.client_payload.package_name }}
-        PLATFORM: ${{ github.event.client_payload.platform }}
-        BASE_URL: ${{ github.event.client_payload.base_url || 'https://withcookie.com' }}
+        BUILD_ID: ${{ github.event.client_payload.build_id || 'test-build' }}
+        APP_NAME: ${{ github.event.client_payload.app_name || 'TestApp' }}
+        PACKAGE_NAME: ${{ github.event.client_payload.package_name || 'com.test.app' }}
+        PLATFORM: ${{ github.event.client_payload.platform || 'android' }}
+        BASE_URL: ${{ github.event.client_payload.base_url || github.event.client_payload.app_url || 'https://withcookie.com' }}
         APP_ICON_URL: ${{ github.event.client_payload.app_icon_url }}
         FIREBASE_CONFIG_URL: ${{ github.event.client_payload.firebase_config_url }}
         KEYSTORE_URL: ${{ github.event.client_payload.keystore_url }}
         KEYSTORE_PASSWORD: ${{ github.event.client_payload.keystore_password }}
         KEY_ALIAS: ${{ github.event.client_payload.key_alias }}
         KEY_PASSWORD: ${{ github.event.client_payload.key_password }}
-        BUILD_TYPE: ${{ github.event.client_payload.build_type }}
+        BUILD_TYPE: ${{ github.event.client_payload.build_type || 'apk' }}
         VERSION_CODE: ${{ github.event.client_payload.version_code || '1' }}
         VERSION_NAME: ${{ github.event.client_payload.version_name || '1.0.0' }}
         BUILD_NUMBER: ${{ github.event.client_payload.build_number || github.event.client_payload.version_code || '1' }}
@@ -101,12 +101,12 @@ jobs:
     
     # Android 빌드
     - name: 🤖 Build Android App
-      if: github.event.client_payload.platform == 'android'
+      if: github.event.client_payload.platform == 'android' || github.event_name == 'push'
       env:
-        BUILD_TYPE: ${{ github.event.client_payload.build_type }}
-        BUILD_MODE: release
-        APP_NAME: ${{ github.event.client_payload.app_name }}
-        PACKAGE_NAME: ${{ github.event.client_payload.package_name }}
+        BUILD_TYPE: ${{ github.event.client_payload.build_type || 'apk' }}
+        BUILD_MODE: debug
+        APP_NAME: ${{ github.event.client_payload.app_name || 'TestApp' }}
+        PACKAGE_NAME: ${{ github.event.client_payload.package_name || 'com.test.app' }}
         VERSION_CODE: ${{ github.event.client_payload.version_code || '1' }}
         VERSION_NAME: ${{ github.event.client_payload.version_name || '1.0.0' }}
         KEYSTORE_URL: ${{ github.event.client_payload.keystore_url }}
@@ -132,7 +132,7 @@ jobs:
     - name: 📦 Prepare build artifacts
       id: prepare-artifacts
       run: |
-        if [ "${{ github.event.client_payload.platform }}" = "android" ]; then
+        if [ "${{ github.event.client_payload.platform || 'android' }}" = "android" ]; then
           if [ "${{ github.event.client_payload.build_type }}" = "aab" ]; then
             BUILD_FILE=$(find android/app/build/outputs/bundle -name "*.aab" | head -1)
           else
