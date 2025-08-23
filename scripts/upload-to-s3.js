@@ -18,7 +18,7 @@ class S3Uploader {
       buildType: process.env.BUILD_TYPE || 'apk',
       outputPath: process.env.OUTPUT_PATH,
       s3UploadUrl: process.env.S3_UPLOAD_URL,
-      refrigeratorEndpoint: 'https://refrigerator.logipasta.com/v1/file',
+      refrigeratorEndpoint: 'http://ec2-instance-url.amazonaws.com/v1/file',
       bucket: 'withcookie-bucket',
       uploadPath: 'app-builds',
       unlimitedKey: process.env.REFRIGERATOR_UNLIMITED_KEY || 'UNLIMITED2024'
@@ -132,7 +132,7 @@ class S3Uploader {
       // 파일 크기 확인
       const fileStats = fs.statSync(filePath);
       const fileSizeMB = fileStats.size / (1024 * 1024);
-      console.log(`📏 File size: ${fileSizeMB.toFixed(2)} MB`);
+      console.log(`📏 File size: ${fileSizeMB.toFixed(2)} MB (${fileStats.size} bytes)`);
       
       const formData = new FormData();
       
