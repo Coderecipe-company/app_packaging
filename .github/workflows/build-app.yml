@@ -3,6 +3,11 @@ name: Build Mobile App
 on:
   repository_dispatch:
     types: [build_mobile_app]
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'README.md'
+      - '.gitignore'
 
 env:
   NODE_VERSION: '18'
