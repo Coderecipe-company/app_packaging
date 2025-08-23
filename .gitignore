@@ -14,10 +14,10 @@ yarn-error.log*
 # Android
 android/app/build/
 android/build/
-android/gradle/
-android/gradlew
-android/gradlew.bat
-android/local.properties
+# android/gradle/ - include for GitHub Actions
+# android/gradlew - include for GitHub Actions  
+# android/gradlew.bat - include for GitHub Actions
+# android/local.properties - include for GitHub Actions
 android/.gradle/
 android/app/google-services.json
 android/app/release.keystore
