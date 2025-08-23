@@ -151,8 +151,25 @@ jobs:
           exit 1
         fi
     
-    # S3 업로드 (냉장고 API 사용)
-    - name: ☁️ Upload to S3
+    # 다운로드 URL 생성 및 전달
+    - name: 🔗 Generate download URL
+      id: generate-url
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        GITHUB_RUN_ID: ${{ github.run_id }}
+        BUILD_ID: ${{ github.event.client_payload.build_id || 'test-build' }}
+        PLATFORM: ${{ github.event.client_payload.platform || 'android' }}
+        BUILD_TYPE: ${{ github.event.client_payload.build_type || 'apk' }}
+        S3_UPLOAD_URL: ${{ github.event.client_payload.s3_upload_url }}
+        ARTIFACT_NAME: build-${{ github.event.client_payload.platform || 'android' }}-${{ github.event.client_payload.build_id || 'test-build' }}
+      run: |
+        echo "📥 Generating download information..."
+        node scripts/generate-artifact-url.js
+    
+    # S3 업로드 시도 (선택적 - 작은 파일만)
+    - name: ☁️ Upload to S3 (Optional)
+      continue-on-error: true
       env:
         BUILD_ID: ${{ github.event.client_payload.build_id }}
         PLATFORM: ${{ github.event.client_payload.platform }}
@@ -162,10 +179,19 @@ jobs:
         REFRIGERATOR_UNLIMITED_KEY: ${{ secrets.REFRIGERATOR_UNLIMITED_KEY || 'UNLIMITED2024' }}
       run: |
         if [ -f "$BUILD_FILE" ]; then
-          node scripts/upload-to-s3.js
+          # 파일 크기 확인
+          FILE_SIZE_MB=$(du -m "$BUILD_FILE" | cut -f1)
+          echo "📏 File size: ${FILE_SIZE_MB}MB"
+          
+          if [ "$FILE_SIZE_MB" -le 20 ]; then
+            echo "✅ File is small enough for Refrigerator upload"
+            node scripts/upload-to-s3.js || echo "⚠️ Refrigerator upload failed, but GitHub Artifacts is available"
+          else
+            echo "⚠️ File too large for Refrigerator (${FILE_SIZE_MB}MB > 20MB)"
+            echo "📥 Please use GitHub Artifacts download instead"
+          fi
         else
-          echo "❌ No build file to upload"
-          exit 1
+          echo "❌ No build file found"
         fi
     
     # 빌드 결과 알림
@@ -186,7 +212,10 @@ jobs:
           "status": "$BUILD_STATUS",
           "build_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
           "github_run_id": "${{ github.run_id }}",
-          "github_run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          "github_run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+          "download_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts",
+          "download_method": "GitHub Artifacts",
+          "message": "Build completed. Download from GitHub Actions Artifacts section."
         }
         EOF
         )
