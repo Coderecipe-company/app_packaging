@@ -10,7 +10,8 @@ react {
     autolinkLibrariesWithApp()
 }
 
-def enableProguardInReleaseBuilds = false
+// Enable ProGuard in debug builds for size optimization
+def enableProguardInReleaseBuilds = true
 def jscFlavor = 'org.webkit:android-jsc:+'
 
 android {
@@ -55,7 +56,7 @@ android {
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
-            // Debug 빌드에서도 일부 최적화 적용
+            // Debug build without minification for faster builds
             shrinkResources false
             minifyEnabled false
         }

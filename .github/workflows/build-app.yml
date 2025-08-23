@@ -104,7 +104,7 @@ jobs:
       if: github.event.client_payload.platform == 'android' || github.event_name == 'push'
       env:
         BUILD_TYPE: ${{ github.event.client_payload.build_type || 'apk' }}
-        BUILD_MODE: debug
+        BUILD_MODE: release
         APP_NAME: ${{ github.event.client_payload.app_name || 'TestApp' }}
         PACKAGE_NAME: ${{ github.event.client_payload.package_name || 'com.test.app' }}
         VERSION_CODE: ${{ github.event.client_payload.version_code || '1' }}
@@ -136,7 +136,7 @@ jobs:
           if [ "${{ github.event.client_payload.build_type }}" = "aab" ]; then
             BUILD_FILE=$(find android/app/build/outputs/bundle -name "*.aab" | head -1)
           else
-            BUILD_FILE=$(find android/app/build/outputs/apk -name "*.apk" | head -1)
+            BUILD_FILE=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
           fi
         else
           BUILD_FILE=$(find ios/build -name "*.ipa" | head -1)
