@@ -20,7 +20,8 @@ class S3Uploader {
       s3UploadUrl: process.env.S3_UPLOAD_URL,
       refrigeratorEndpoint: 'https://refrigerator.logipasta.com/v1/file',
       bucket: 'withcookie-bucket',
-      uploadPath: 'app-builds'
+      uploadPath: 'app-builds',
+      unlimitedKey: process.env.REFRIGERATOR_UNLIMITED_KEY || 'UNLIMITED2024'
     };
   }
 
@@ -128,10 +129,21 @@ class S3Uploader {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const uploadFileName = `${this.config.buildId}-${timestamp}-${fileName}`;
       
+      // 파일 크기 확인
+      const fileStats = fs.statSync(filePath);
+      const fileSizeMB = fileStats.size / (1024 * 1024);
+      console.log(`📏 File size: ${fileSizeMB.toFixed(2)} MB`);
+      
       const formData = new FormData();
       formData.append('file', fs.createReadStream(filePath), uploadFileName);
       formData.append('bucket', this.config.bucket);
       formData.append('path', this.config.uploadPath);
+      
+      // 20MB 이상인 경우 무제한 키 추가
+      if (fileSizeMB > 20) {
+        console.log('🔓 Adding unlimited key for large file upload...');
+        formData.append('unlimitedKey', this.config.unlimitedKey);
+      }
       
       const response = await axios.post(this.config.refrigeratorEndpoint, formData, {
         headers: {
