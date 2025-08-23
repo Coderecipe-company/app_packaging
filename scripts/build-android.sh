@@ -23,17 +23,18 @@ npm install --production=false
 
 # React Native Metro 번들러 캐시 클리어
 echo "🧹 Clearing Metro bundler cache..."
-npx react-native start --reset-cache &
+npx react-native start --reset-cache --port 8081 > /dev/null 2>&1 &
 METRO_PID=$!
-sleep 5
+sleep 3
 kill $METRO_PID 2>/dev/null || true
+sleep 1
 
 # Android 디렉토리로 이동
 cd android
 
 # Gradle 캐시 클리어
 echo "🧹 Cleaning Gradle build cache..."
-./gradlew clean
+GRADLE_OPTS="-Xmx2048m -XX:MaxMetaspaceSize=512m" ./gradlew clean
 
 # Gradle Wrapper 권한 설정
 chmod +x gradlew
@@ -55,9 +56,9 @@ echo "🔨 Building Android $BUILD_TYPE in $BUILD_MODE mode..."
 if [ "$BUILD_TYPE" = "aab" ]; then
   echo "📦 Building Android App Bundle (AAB)..."
   if [ "$BUILD_MODE" = "release" ]; then
-    ./gradlew bundleRelease
+    GRADLE_OPTS="-Xmx2048m -XX:MaxMetaspaceSize=512m" ./gradlew bundleRelease
   else
-    ./gradlew bundleDebug
+    GRADLE_OPTS="-Xmx2048m -XX:MaxMetaspaceSize=512m" ./gradlew bundleDebug
   fi
   
   # AAB 파일 위치 확인
@@ -78,9 +79,9 @@ if [ "$BUILD_TYPE" = "aab" ]; then
 else
   echo "📦 Building Android APK..."
   if [ "$BUILD_MODE" = "release" ]; then
-    ./gradlew assembleRelease
+    GRADLE_OPTS="-Xmx2048m -XX:MaxMetaspaceSize=512m" ./gradlew assembleRelease
   else
-    ./gradlew assembleDebug
+    GRADLE_OPTS="-Xmx2048m -XX:MaxMetaspaceSize=512m" ./gradlew assembleDebug
   fi
   
   # APK 파일 위치 확인
