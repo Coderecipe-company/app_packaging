@@ -17,7 +17,7 @@ async function testUpload() {
   formData.append('file', fs.createReadStream(testFile), 'test.txt');
   
   try {
-    const response = await axios.post('https://refrigerator.logipasta.com/v1/file', formData, {
+    const response = await axios.post('http://refrigerator-env.eba-hmupckju.ap-northeast-2.elasticbeanstalk.com/v1/file', formData, {
       headers: {
         ...formData.getHeaders(),
         'Access-Control-Allow-Origin': '*',

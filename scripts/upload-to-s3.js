@@ -18,7 +18,7 @@ class S3Uploader {
       buildType: process.env.BUILD_TYPE || 'apk',
       outputPath: process.env.OUTPUT_PATH,
       s3UploadUrl: process.env.S3_UPLOAD_URL,
-      refrigeratorEndpoint: 'http://ec2-instance-url.amazonaws.com/v1/file',
+      refrigeratorEndpoint: 'http://refrigerator-env.eba-hmupckju.ap-northeast-2.elasticbeanstalk.com/v1/file',
       bucket: 'withcookie-bucket',
       uploadPath: 'app-builds',
       unlimitedKey: process.env.REFRIGERATOR_UNLIMITED_KEY || 'UNLIMITED2024'
