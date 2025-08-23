@@ -1,17 +1,24 @@
 apply plugin: "com.android.application"
-apply plugin: "com.google.gms.google-services"
+apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "com.facebook.react"
 
 /**
  * This is the configuration block to customize your React Native Android app.
  */
-android {
-    namespace 'com.apppackaging'
-    compileSdkVersion rootProject.ext.compileSdkVersion
+react {
+    /* Autolinking */
+    autolinkLibrariesWithApp()
+}
 
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
-    }
+def enableProguardInReleaseBuilds = false
+def jscFlavor = 'org.webkit:android-jsc:+'
+
+android {
+    ndkVersion rootProject.ext.ndkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdk rootProject.ext.compileSdkVersion
+    
+    namespace 'com.apppackaging'
 
     defaultConfig {
         applicationId "com.apppackaging"
@@ -45,33 +52,20 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            signingConfig signingConfigs.release
-            minifyEnabled = enableProguardInReleaseBuilds
+            signingConfig signingConfigs.debug
+            minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }
 }
 
 dependencies {
-    implementation fileTree(dir: "libs", include: ["*.jar"])
+    // The version of react-native is set by the React Native Gradle Plugin
+    implementation("com.facebook.react:react-android")
 
-    // React Native dependencies managed by autolinking
-    implementation project(':ReactAndroid')
-
-    // Firebase
-    implementation platform('com.google.firebase:firebase-bom:32.3.1')
-    implementation 'com.google.firebase:firebase-analytics'
-    implementation 'com.google.firebase:firebase-messaging'
-    
-    // WebView (수동 추가)
-    implementation 'org.webkit:android-jsc:+'
-
-    // Hermes JS Engine
-    if (rootProject.ext.get("hermesEnabled")) {
+    if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
     } else {
-        implementation 'org.webkit:android-jsc:+'
+        implementation jscFlavor
     }
 }
-
-// apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)

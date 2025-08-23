@@ -1,18 +1,15 @@
 package com.apppackaging;
 
 import android.app.Application;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.os.Build;
-
 import com.facebook.react.PackageList;
 import com.facebook.react.ReactApplication;
+import com.facebook.react.ReactHost;
 import com.facebook.react.ReactNativeHost;
 import com.facebook.react.ReactPackage;
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
+import com.facebook.react.defaults.DefaultReactHost;
 import com.facebook.react.defaults.DefaultReactNativeHost;
 import com.facebook.soloader.SoLoader;
-
 import java.util.List;
 
 public class MainApplication extends Application implements ReactApplication {
@@ -28,7 +25,7 @@ public class MainApplication extends Application implements ReactApplication {
                 protected List<ReactPackage> getPackages() {
                     @SuppressWarnings("UnnecessaryLocalVariable")
                     List<ReactPackage> packages = new PackageList(this).getPackages();
-                    // 추가 패키지가 필요한 경우 여기에 추가
+                    // Packages that cannot be autolinked yet can be added manually here
                     return packages;
                 }
 
@@ -39,7 +36,7 @@ public class MainApplication extends Application implements ReactApplication {
 
                 @Override
                 protected boolean isNewArchEnabled() {
-                    return DefaultNewArchitectureEntryPoint.load();
+                    return BuildConfig.IS_NEW_ARCHITECTURE_ENABLED;
                 }
 
                 @Override
@@ -54,37 +51,18 @@ public class MainApplication extends Application implements ReactApplication {
     }
 
     @Override
+    public ReactHost getReactHost() {
+        return DefaultReactHost.getDefaultReactHost(getApplicationContext(), getReactNativeHost());
+    }
+
+    @Override
     public void onCreate() {
         super.onCreate();
         SoLoader.init(this, /* native exopackage */ false);
         
-        // 알림 채널 생성 (Android 8.0+)
-        createNotificationChannel();
-        
-        if (DefaultNewArchitectureEntryPoint.load()) {
-            DefaultNewArchitectureEntryPoint.initialize();
-        }
-    }
-
-    private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            String channelId = "default_notification_channel";
-            CharSequence channelName = "Default";
-            String channelDescription = "Default notification channel";
-            int importance = NotificationManager.IMPORTANCE_HIGH;
-            
-            NotificationChannel notificationChannel = new NotificationChannel(
-                channelId, 
-                channelName, 
-                importance
-            );
-            notificationChannel.setDescription(channelDescription);
-            notificationChannel.enableLights(true);
-            notificationChannel.enableVibration(true);
-            notificationChannel.setShowBadge(true);
-            
-            NotificationManager notificationManager = getSystemService(NotificationManager.class);
-            notificationManager.createNotificationChannel(notificationChannel);
+        if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
+            // If you opted-in for the New Architecture, we load the native entry point for this app.
+            DefaultNewArchitectureEntryPoint.load();
         }
     }
 }
