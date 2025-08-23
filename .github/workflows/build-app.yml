@@ -43,14 +43,14 @@ jobs:
     
     # Android 전용 설정
     - name: ☕ Setup JDK (Android)
-      if: github.event.client_payload.platform == 'android'
+      if: github.event.client_payload.platform == 'android' || github.event_name == 'push'
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
         java-version: ${{ env.JAVA_VERSION }}
     
     - name: 🤖 Setup Android SDK (Android)
-      if: github.event.client_payload.platform == 'android'
+      if: github.event.client_payload.platform == 'android' || github.event_name == 'push'
       uses: android-actions/setup-android@v3
       with:
         api-level: 34
@@ -111,6 +111,8 @@ jobs:
         VERSION_NAME: ${{ github.event.client_payload.version_name || '1.0.0' }}
         KEYSTORE_URL: ${{ github.event.client_payload.keystore_url }}
         KEYSTORE_PASSWORD: ${{ github.event.client_payload.keystore_password }}
+        GRADLE_OPTS: "-Xmx2048m -Xms512m -XX:MaxMetaspaceSize=512m"
+        JAVA_OPTS: "-Xmx2048m -Xms512m"
       run: |
         chmod +x scripts/build-android.sh
         scripts/build-android.sh
