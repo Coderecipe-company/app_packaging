@@ -34,7 +34,6 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
     
     # Android 전용 설정
     - name: ☕ Setup JDK (Android)
@@ -68,7 +67,7 @@ jobs:
     # 공통 의존성 설치
     - name: 📦 Install dependencies
       run: |
-        npm ci
+        npm install
         # Sharp 이미지 처리용 (아이콘 생성)
         npm install sharp
     
