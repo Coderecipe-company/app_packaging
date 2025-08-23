@@ -2,7 +2,7 @@ name: Build Mobile App
 
 on:
   repository_dispatch:
-    types: [build-app]
+    types: [build_mobile_app]
 
 env:
   NODE_VERSION: '18'
