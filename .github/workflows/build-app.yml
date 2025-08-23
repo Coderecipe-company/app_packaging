@@ -111,8 +111,8 @@ jobs:
         VERSION_NAME: ${{ github.event.client_payload.version_name || '1.0.0' }}
         KEYSTORE_URL: ${{ github.event.client_payload.keystore_url }}
         KEYSTORE_PASSWORD: ${{ github.event.client_payload.keystore_password }}
-        GRADLE_OPTS: "-Xmx2048m -Xms512m -XX:MaxMetaspaceSize=512m"
-        JAVA_OPTS: "-Xmx2048m -Xms512m"
+        GRADLE_OPTS: "-Xmx2048m -XX:MaxMetaspaceSize=512m"
+        _JAVA_OPTIONS: "-Xmx2048m"
       run: |
         chmod +x scripts/build-android.sh
         scripts/build-android.sh
