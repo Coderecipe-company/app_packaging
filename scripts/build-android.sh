@@ -32,9 +32,12 @@ sleep 1
 # Android 디렉토리로 이동
 cd android
 
+# Gradle 환경 설정
+export GRADLE_OPTS="-Xmx2048m -Xms512m -XX:MaxMetaspaceSize=512m"
+
 # Gradle 캐시 클리어
 echo "🧹 Cleaning Gradle build cache..."
-GRADLE_OPTS="-Xmx2048m -XX:MaxMetaspaceSize=512m" ./gradlew clean
+./gradlew clean
 
 # Gradle Wrapper 권한 설정
 chmod +x gradlew
@@ -56,9 +59,9 @@ echo "🔨 Building Android $BUILD_TYPE in $BUILD_MODE mode..."
 if [ "$BUILD_TYPE" = "aab" ]; then
   echo "📦 Building Android App Bundle (AAB)..."
   if [ "$BUILD_MODE" = "release" ]; then
-    GRADLE_OPTS="-Xmx2048m -XX:MaxMetaspaceSize=512m" ./gradlew bundleRelease
+    ./gradlew bundleRelease
   else
-    GRADLE_OPTS="-Xmx2048m -XX:MaxMetaspaceSize=512m" ./gradlew bundleDebug
+    ./gradlew bundleDebug
   fi
   
   # AAB 파일 위치 확인
@@ -79,9 +82,9 @@ if [ "$BUILD_TYPE" = "aab" ]; then
 else
   echo "📦 Building Android APK..."
   if [ "$BUILD_MODE" = "release" ]; then
-    GRADLE_OPTS="-Xmx2048m -XX:MaxMetaspaceSize=512m" ./gradlew assembleRelease
+    ./gradlew assembleRelease
   else
-    GRADLE_OPTS="-Xmx2048m -XX:MaxMetaspaceSize=512m" ./gradlew assembleDebug
+    ./gradlew assembleDebug
   fi
   
   # APK 파일 위치 확인
