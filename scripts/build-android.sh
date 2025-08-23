@@ -32,9 +32,14 @@ sleep 1
 # Android 디렉토리로 이동
 cd android
 
-# Gradle 환경 설정
+# Gradle 환경 설정 - 기존 환경변수 정리 후 재설정
+unset GRADLE_OPTS
+unset JAVA_OPTS
 export GRADLE_OPTS="-Xmx2048m -Xms512m -XX:MaxMetaspaceSize=512m"
 export JAVA_OPTS="-Xmx2048m -Xms512m"
+echo "✅ Gradle environment configured:"
+echo "  GRADLE_OPTS: $GRADLE_OPTS"
+echo "  JAVA_OPTS: $JAVA_OPTS"
 
 # 기존 Gradle 프로세스 종료
 pkill -f gradle || true

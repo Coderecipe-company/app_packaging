@@ -56,6 +56,7 @@ dependencies {
     implementation fileTree(dir: "libs", include: ["*.jar"])
 
     // React Native dependencies managed by autolinking
+    implementation "com.facebook.react:react-native:+"  // From node_modules
 
     // Firebase
     implementation platform('com.google.firebase:firebase-bom:32.3.1')
