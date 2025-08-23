@@ -32,12 +32,8 @@ sleep 1
 # Android 디렉토리로 이동
 cd android
 
-# Gradle 환경 설정 - 올바른 JVM 옵션 설정
-export GRADLE_OPTS="-Xmx2048m -XX:MaxMetaspaceSize=512m"
-export _JAVA_OPTIONS="-Xmx2048m"
-echo "✅ Gradle environment configured:"
-echo "  GRADLE_OPTS: $GRADLE_OPTS"
-echo "  _JAVA_OPTIONS: $_JAVA_OPTIONS"
+# Gradle 환경 설정 - gradle.properties에서 처리하도록 함
+echo "✅ Using JVM settings from gradle.properties"
 
 # 기존 Gradle 프로세스 종료
 pkill -f gradle || true
