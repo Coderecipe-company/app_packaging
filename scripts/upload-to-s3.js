@@ -135,17 +135,36 @@ class S3Uploader {
       console.log(`📏 File size: ${fileSizeMB.toFixed(2)} MB`);
       
       const formData = new FormData();
-      formData.append('file', fs.createReadStream(filePath), uploadFileName);
-      formData.append('bucket', this.config.bucket);
-      formData.append('path', this.config.uploadPath);
       
-      // 20MB 이상인 경우 무제한 키 추가
+      // 20MB 이상인 경우 무제한 키를 먼저 추가 (서버가 먼저 파싱하도록)
       if (fileSizeMB > 20) {
         console.log('🔓 Adding unlimited key for large file upload...');
+        console.log('   Key value:', this.config.unlimitedKey);
         formData.append('unlimitedKey', this.config.unlimitedKey);
       }
       
-      const response = await axios.post(this.config.refrigeratorEndpoint, formData, {
+      formData.append('bucket', this.config.bucket);
+      formData.append('path', this.config.uploadPath);
+      formData.append('file', fs.createReadStream(filePath), uploadFileName);
+      
+      // FormData 필드 확인 (디버깅용)
+      console.log('📋 FormData fields order:');
+      const fields = Object.keys(formData._streams || {});
+      if (fileSizeMB > 20) {
+        console.log('   1. unlimitedKey:', this.config.unlimitedKey);
+      }
+      console.log(`   ${fileSizeMB > 20 ? '2' : '1'}. bucket:`, this.config.bucket);
+      console.log(`   ${fileSizeMB > 20 ? '3' : '2'}. path:`, this.config.uploadPath);
+      console.log(`   ${fileSizeMB > 20 ? '4' : '3'}. file:`, uploadFileName);
+      
+      // 20MB 이상인 경우 URL에도 파라미터 추가 (이중 보장)
+      let uploadUrl = this.config.refrigeratorEndpoint;
+      if (fileSizeMB > 20) {
+        uploadUrl += `?unlimitedKey=${this.config.unlimitedKey}`;
+        console.log('🔗 Upload URL with key:', uploadUrl);
+      }
+      
+      const response = await axios.post(uploadUrl, formData, {
         headers: {
           ...formData.getHeaders(),
           'Access-Control-Allow-Origin': '*',
