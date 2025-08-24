@@ -282,17 +282,37 @@ class AppConfigurator {
       const axios = require('axios');
       
       if (this.buildConfig.platform === 'android') {
-        console.log('  📥 Downloading google-services.json...');
+        console.log('  📥 Downloading Firebase config (any filename -> google-services.json)...');
         const response = await axios.get(this.buildConfig.firebaseConfigUrl);
         const configPath = path.join(this.projectRoot, 'android/app/google-services.json');
-        fs.writeFileSync(configPath, JSON.stringify(response.data, null, 2));
-        console.log('  ✅ google-services.json saved successfully');
+        
+        // URL의 파일명과 관계없이 항상 google-services.json으로 저장
+        // response.data가 이미 객체인 경우와 문자열인 경우를 모두 처리
+        let configData;
+        if (typeof response.data === 'string') {
+          try {
+            configData = JSON.parse(response.data);
+          } catch {
+            configData = response.data;
+          }
+        } else {
+          configData = response.data;
+        }
+        
+        // JSON 형식으로 저장
+        if (typeof configData === 'object') {
+          fs.writeFileSync(configPath, JSON.stringify(configData, null, 2));
+        } else {
+          fs.writeFileSync(configPath, configData);
+        }
+        
+        console.log('  ✅ google-services.json saved successfully (from ' + this.buildConfig.firebaseConfigUrl.split('/').pop() + ')');
       } else if (this.buildConfig.platform === 'ios') {
-        console.log('  📥 Downloading GoogleService-Info.plist...');
+        console.log('  📥 Downloading Firebase config (any filename -> GoogleService-Info.plist)...');
         const response = await axios.get(this.buildConfig.firebaseConfigUrl, { responseType: 'arraybuffer' });
         const configPath = path.join(this.projectRoot, 'ios/AppPackaging/GoogleService-Info.plist');
         fs.writeFileSync(configPath, Buffer.from(response.data));
-        console.log('  ✅ GoogleService-Info.plist saved successfully');
+        console.log('  ✅ GoogleService-Info.plist saved successfully (from ' + this.buildConfig.firebaseConfigUrl.split('/').pop() + ')');
       }
       
     } catch (error) {
