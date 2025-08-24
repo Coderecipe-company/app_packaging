@@ -4,6 +4,36 @@
 
 FCM 푸시 알림에 URL을 포함시켜 보내면, 알림을 클릭했을 때 해당 URL이 WebView에 로드됩니다.
 
+## 🔥 전체 사용자에게 발송하기
+
+모든 앱 사용자는 자동으로 `all_users` topic에 구독되어 있습니다.
+
+### Topic을 사용한 전체 발송
+
+```bash
+# 전체 사용자에게 발송
+curl -X POST https://fcm.googleapis.com/fcm/send \
+  -H "Authorization: key=YOUR_SERVER_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "/topics/all_users",
+    "notification": {
+      "title": "전체 공지",
+      "body": "모든 사용자에게 전달되는 메시지입니다"
+    },
+    "data": {
+      "url": "https://vpvmall.com/notice"
+    }
+  }'
+```
+
+### Firebase Console에서 전체 발송
+1. Firebase Console > Cloud Messaging
+2. 새 캠페인 > 알림
+3. 타겟 설정에서 "주제" 선택
+4. `all_users` 입력
+5. 알림 내용 작성 후 전송
+
 ## 1. Firebase Console에서 테스트
 
 Firebase Console > Cloud Messaging에서 테스트 메시지 보내기:
@@ -78,6 +108,8 @@ admin.messaging().send(message)
 
 ## 4. 서버에서 보내기 (PHP 예제)
 
+### 개별 사용자에게 보내기
+
 ```php
 <?php
 $fcmToken = "YOUR_FCM_TOKEN";
@@ -95,6 +127,47 @@ $data = [
 
 $fields = [
     'to' => $fcmToken,
+    'notification' => $notification,
+    'data' => $data
+];
+
+$headers = [
+    'Authorization: key=' . $serverKey,
+    'Content-Type: application/json'
+];
+
+$ch = curl_init();
+curl_setopt($ch, CURLOPT_URL, 'https://fcm.googleapis.com/fcm/send');
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($fields));
+
+$result = curl_exec($ch);
+curl_close($ch);
+
+echo $result;
+?>
+```
+
+### 전체 사용자에게 보내기 (PHP)
+
+```php
+<?php
+$serverKey = "YOUR_SERVER_KEY";
+
+$notification = [
+    'title' => '전체 공지사항',
+    'body' => '모든 사용자분들께 알립니다'
+];
+
+$data = [
+    'url' => 'https://vpvmall.com/notice',
+    'type' => 'broadcast'
+];
+
+$fields = [
+    'to' => '/topics/all_users',  // 전체 사용자 topic
     'notification' => $notification,
     'data' => $data
 ];

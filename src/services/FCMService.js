@@ -63,6 +63,14 @@ class FCMService {
         AsyncStorage.setItem('fcm_token', token);
       });
 
+      // 모든 사용자를 'all_users' topic에 자동 구독
+      try {
+        await this.subscribeTopic('all_users');
+        console.log('Auto-subscribed to all_users topic for broadcast messaging');
+      } catch (error) {
+        console.warn('Failed to subscribe to all_users topic:', error);
+      }
+
       this.isInitialized = true;
       console.log('FCM Service initialized successfully');
     } catch (error) {
