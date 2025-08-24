@@ -52,6 +52,11 @@ class AppConfigurator {
       // 3. 앱 아이콘 다운로드 및 적용
       if (this.buildConfig.appIconUrl) {
         await this.downloadAndApplyAppIcon();
+      } else {
+        // 아이콘 URL이 없으면 기본 아이콘 생성
+        console.log('🎨 No icon URL provided, generating default icon...');
+        const generateDefaultIcon = require('./generate-default-icon');
+        await generateDefaultIcon();
       }
       
       // 4. Firebase 설정 파일 다운로드 및 적용
@@ -149,9 +154,10 @@ class AppConfigurator {
     const appJsPath = path.join(this.projectRoot, 'App.js');
     if (fs.existsSync(appJsPath)) {
       let appJsContent = fs.readFileSync(appJsPath, 'utf8');
+      // Update the default URL
       appJsContent = appJsContent.replace(
-        /const baseUrl = await AsyncStorage\.getItem\('BASE_URL'\) \|\| '[^']*'/,
-        `const baseUrl = await AsyncStorage.getItem('BASE_URL') || '${this.buildConfig.baseUrl}'`
+        /const defaultUrl = '[^']*'/,
+        `const defaultUrl = '${this.buildConfig.baseUrl}'`
       );
       fs.writeFileSync(appJsPath, appJsContent);
     }
@@ -178,7 +184,10 @@ class AppConfigurator {
       
     } catch (error) {
       console.error('Icon processing failed:', error);
-      // 아이콘 처리 실패는 빌드를 중단시키지 않음
+      console.log('🎨 Falling back to default icon generation...');
+      // 아이콘 다운로드 실패 시 기본 아이콘 생성
+      const generateDefaultIcon = require('./generate-default-icon');
+      await generateDefaultIcon();
     }
   }
 

@@ -3,11 +3,6 @@ name: Build Mobile App
 on:
   repository_dispatch:
     types: [build_mobile_app]
-  push:
-    branches: [main]
-    paths-ignore:
-      - 'README.md'
-      - '.gitignore'
 
 env:
   NODE_VERSION: '18'
@@ -43,14 +38,14 @@ jobs:
     
     # Android 전용 설정
     - name: ☕ Setup JDK (Android)
-      if: github.event.client_payload.platform == 'android' || github.event_name == 'push'
+      if: github.event.client_payload.platform == 'android' || github.event.client_payload.platform == null
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
         java-version: ${{ env.JAVA_VERSION }}
     
     - name: 🤖 Setup Android SDK (Android)
-      if: github.event.client_payload.platform == 'android' || github.event_name == 'push'
+      if: github.event.client_payload.platform == 'android' || github.event.client_payload.platform == null
       uses: android-actions/setup-android@v3
       with:
         api-level: 34
@@ -85,7 +80,7 @@ jobs:
         PACKAGE_NAME: ${{ github.event.client_payload.package_name || 'com.test.app' }}
         PLATFORM: ${{ github.event.client_payload.platform || 'android' }}
         BASE_URL: ${{ github.event.client_payload.base_url || github.event.client_payload.app_url || 'https://withcookie.com' }}
-        APP_ICON_URL: ${{ github.event.client_payload.app_icon_url }}
+        APP_ICON_URL: ${{ github.event.client_payload.icon_url || github.event.client_payload.app_icon_url }}
         FIREBASE_CONFIG_URL: ${{ github.event.client_payload.firebase_config_url }}
         KEYSTORE_URL: ${{ github.event.client_payload.keystore_url }}
         KEYSTORE_PASSWORD: ${{ github.event.client_payload.keystore_password }}
@@ -101,7 +96,7 @@ jobs:
     
     # Android 빌드
     - name: 🤖 Build Android App
-      if: github.event.client_payload.platform == 'android' || github.event_name == 'push'
+      if: github.event.client_payload.platform == 'android' || github.event.client_payload.platform == null
       env:
         BUILD_TYPE: ${{ github.event.client_payload.build_type || 'apk' }}
         BUILD_MODE: release
