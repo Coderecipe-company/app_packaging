@@ -65,13 +65,8 @@
             
         </activity>
         
-        <!-- Firebase Messaging Service -->
-        <service android:name=".FCMService"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.google.firebase.MESSAGING_EVENT" />
-            </intent-filter>
-        </service>
+        <!-- Firebase Messaging Service is handled by @react-native-firebase/messaging -->
+        <!-- No need to declare the service manually -->
         
         <!-- Firebase Messaging default notification channel -->
         <meta-data

@@ -276,19 +276,23 @@ class AppConfigurator {
   }
 
   async downloadAndApplyFirebaseConfig() {
-    console.log('🔥 Downloading Firebase configuration...');
+    console.log('🔥 Downloading Firebase configuration from:', this.buildConfig.firebaseConfigUrl);
     
     try {
       const axios = require('axios');
       
       if (this.buildConfig.platform === 'android') {
+        console.log('  📥 Downloading google-services.json...');
         const response = await axios.get(this.buildConfig.firebaseConfigUrl);
         const configPath = path.join(this.projectRoot, 'android/app/google-services.json');
         fs.writeFileSync(configPath, JSON.stringify(response.data, null, 2));
+        console.log('  ✅ google-services.json saved successfully');
       } else if (this.buildConfig.platform === 'ios') {
+        console.log('  📥 Downloading GoogleService-Info.plist...');
         const response = await axios.get(this.buildConfig.firebaseConfigUrl, { responseType: 'arraybuffer' });
         const configPath = path.join(this.projectRoot, 'ios/AppPackaging/GoogleService-Info.plist');
         fs.writeFileSync(configPath, Buffer.from(response.data));
+        console.log('  ✅ GoogleService-Info.plist saved successfully');
       }
       
     } catch (error) {

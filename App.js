@@ -9,14 +9,17 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import WebViewContainer from './src/components/WebViewContainer';
+import FCMService from './src/services/FCMService';
 
 const App = () => {
   const [webViewUrl, setWebViewUrl] = useState('');
   const [isReady, setIsReady] = useState(false);
+  const [fcmToken, setFcmToken] = useState(null);
   const webViewRef = React.useRef(null);
 
   useEffect(() => {
     initializeApp();
+    initializeFCM();
   }, []);
 
   const initializeApp = async () => {
@@ -34,6 +37,39 @@ const App = () => {
     } catch (error) {
       console.error('App initialization error:', error);
       Alert.alert('오류', '앱 초기화 중 오류가 발생했습니다.');
+    }
+  };
+
+  const initializeFCM = async () => {
+    try {
+      // google-services.json이 없으면 FCM을 초기화하지 않음
+      // Firebase 설정 체크 (초기화 시도를 통해 간접적으로 확인)
+      console.log('Attempting FCM initialization...');
+      
+      // FCM 초기화
+      await FCMService.initialize();
+      
+      // FCM 토큰 가져오기
+      const token = await FCMService.getToken();
+      if (token) {
+        console.log('FCM Token:', token);
+        setFcmToken(token);
+        
+        // WebView에서 접근할 수 있도록 global 설정
+        global.fcmToken = token;
+      }
+      
+      // 메시지 핸들러 설정
+      FCMService.setupMessageHandlers();
+      
+      // WebView 참조를 global로 설정 (FCMService에서 사용)
+      global.webViewRef = webViewRef;
+      
+      console.log('FCM initialized successfully');
+    } catch (error) {
+      console.log('FCM not configured or initialization failed:', error.message);
+      // FCM 실패해도 앱은 계속 실행되도록 함
+      // google-services.json이 없을 때도 정상 동작
     }
   };
 
@@ -63,6 +99,7 @@ const App = () => {
       <WebViewContainer
         ref={webViewRef}
         url={webViewUrl}
+        fcmToken={fcmToken}
         onUrlChange={(newUrl) => {
           console.log('URL changed to:', newUrl);
           setWebViewUrl(newUrl);
