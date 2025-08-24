@@ -187,7 +187,20 @@ class FCMService {
   }
 
   handleDeepLink(url) {
-    // DeepLinkService와 연동하여 URL 처리
+    console.log('FCM Deep Link received:', url);
+    
+    // WebView가 준비되어 있으면 직접 URL 변경
+    if (global.webViewRef && global.webViewRef.current) {
+      // WebView에서 URL 로드
+      if (global.navigateToUrl) {
+        global.navigateToUrl(url);
+      }
+    } else {
+      // WebView가 아직 준비되지 않았으면 저장해두고 나중에 처리
+      AsyncStorage.setItem('pending_deep_link', url);
+    }
+    
+    // DeepLinkService와도 연동
     if (global.handleDeepLinkUrl) {
       global.handleDeepLinkUrl(url);
     }

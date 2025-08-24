@@ -65,6 +65,20 @@ const App = () => {
       // WebView 참조를 global로 설정 (FCMService에서 사용)
       global.webViewRef = webViewRef;
       
+      // URL 변경 함수를 global로 설정
+      global.navigateToUrl = (url) => {
+        console.log('Navigating to URL from FCM:', url);
+        setWebViewUrl(url);
+      };
+      
+      // 대기 중인 딥링크가 있는지 확인
+      const pendingDeepLink = await AsyncStorage.getItem('pending_deep_link');
+      if (pendingDeepLink) {
+        console.log('Found pending deep link:', pendingDeepLink);
+        setWebViewUrl(pendingDeepLink);
+        await AsyncStorage.removeItem('pending_deep_link');
+      }
+      
       console.log('FCM initialized successfully');
     } catch (error) {
       console.log('FCM not configured or initialization failed:', error.message);
