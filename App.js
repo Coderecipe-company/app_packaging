@@ -10,6 +10,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import WebViewContainer from './src/components/WebViewContainer';
 import FCMService from './src/services/FCMService';
+import AnalyticsService from './src/services/AnalyticsService';
 
 const App = () => {
   const [webViewUrl, setWebViewUrl] = useState('');
@@ -20,6 +21,7 @@ const App = () => {
   useEffect(() => {
     initializeApp();
     initializeFCM();
+    initializeAnalytics();
   }, []);
 
   const initializeApp = async () => {
@@ -37,6 +39,21 @@ const App = () => {
     } catch (error) {
       console.error('App initialization error:', error);
       Alert.alert('오류', '앱 초기화 중 오류가 발생했습니다.');
+    }
+  };
+
+  const initializeAnalytics = async () => {
+    try {
+      await AnalyticsService.initialize();
+      console.log('Analytics initialized');
+      
+      // WebView URL 변경 시 화면 추적
+      global.logScreenView = (screenName) => {
+        AnalyticsService.logScreenView(screenName);
+      };
+    } catch (error) {
+      console.log('Analytics initialization failed:', error.message);
+      // Analytics 실패해도 앱은 계속 실행
     }
   };
 

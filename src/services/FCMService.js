@@ -1,6 +1,7 @@
 import messaging from '@react-native-firebase/messaging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {Platform, Alert, PermissionsAndroid} from 'react-native';
+import AnalyticsService from './AnalyticsService';
 
 class FCMService {
   constructor() {
@@ -147,7 +148,15 @@ class FCMService {
   }
 
   handleForegroundMessage(remoteMessage) {
-    const {notification, data} = remoteMessage;
+    const {notification, data, messageId} = remoteMessage;
+    
+    // Analytics: 알림 수신 이벤트
+    if (notification) {
+      AnalyticsService.logNotificationReceive(
+        messageId || 'unknown',
+        notification.title || 'untitled'
+      );
+    }
     
     if (notification) {
       Alert.alert(
@@ -157,6 +166,13 @@ class FCMService {
           {
             text: '확인',
             onPress: () => {
+              // Analytics: 알림 열기 이벤트
+              AnalyticsService.logNotificationOpen(
+                messageId || 'unknown',
+                notification.title || 'untitled',
+                data?.url || ''
+              );
+              
               if (data && data.url) {
                 this.handleDeepLink(data.url);
               }
@@ -174,9 +190,17 @@ class FCMService {
   }
 
   handleBackgroundMessage(remoteMessage) {
-    const {data} = remoteMessage;
+    const {data, notification, messageId} = remoteMessage;
     
     console.log('Background message data:', data);
+    
+    // Analytics: 백그라운드 알림 수신
+    if (notification) {
+      AnalyticsService.logNotificationReceive(
+        messageId || 'unknown',
+        notification.title || 'untitled'
+      );
+    }
     
     // 백그라운드에서 필요한 데이터 처리
     if (data) {
@@ -185,7 +209,14 @@ class FCMService {
   }
 
   handleNotificationOpen(remoteMessage) {
-    const {data} = remoteMessage;
+    const {data, notification, messageId} = remoteMessage;
+    
+    // Analytics: 알림 열기 이벤트
+    AnalyticsService.logNotificationOpen(
+      messageId || 'unknown',
+      notification?.title || 'untitled',
+      data?.url || ''
+    );
     
     if (data && data.url) {
       this.handleDeepLink(data.url);
