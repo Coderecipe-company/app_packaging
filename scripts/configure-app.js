@@ -42,6 +42,10 @@ class AppConfigurator {
   async configureApp() {
     try {
       console.log('🔧 Configuring app with build ID:', this.buildConfig.buildId);
+      console.log('📱 App Name:', this.buildConfig.appName);
+      console.log('📦 Package Name:', this.buildConfig.packageName);
+      console.log('🌐 Base URL:', this.buildConfig.baseUrl);
+      console.log('🎨 Icon URL:', this.buildConfig.appIconUrl);
       
       // 1. 앱 이름 및 패키지명 설정
       await this.updateAppIdentity();
@@ -148,38 +152,54 @@ class AppConfigurator {
   }
 
   async updateBaseUrl() {
-    console.log('🌐 Updating base URL...');
+    console.log('🌐 Updating base URL to:', this.buildConfig.baseUrl);
     
     // React Native AsyncStorage에 기본 URL 설정
     const appJsPath = path.join(this.projectRoot, 'App.js');
     if (fs.existsSync(appJsPath)) {
       let appJsContent = fs.readFileSync(appJsPath, 'utf8');
+      
+      // Check current default URL
+      const currentMatch = appJsContent.match(/const defaultUrl = '([^']*)'/);
+      console.log('  Current default URL:', currentMatch ? currentMatch[1] : 'not found');
+      
       // Update the default URL
       appJsContent = appJsContent.replace(
         /const defaultUrl = '[^']*'/,
         `const defaultUrl = '${this.buildConfig.baseUrl}'`
       );
+      
+      // Verify the change
+      const newMatch = appJsContent.match(/const defaultUrl = '([^']*)'/);
+      console.log('  New default URL:', newMatch ? newMatch[1] : 'not set');
+      
       fs.writeFileSync(appJsPath, appJsContent);
+    } else {
+      console.log('  ❌ App.js not found at:', appJsPath);
     }
   }
 
   async downloadAndApplyAppIcon() {
-    console.log('🎨 Downloading and applying app icon...');
+    console.log('🎨 Downloading and applying app icon from:', this.buildConfig.appIconUrl);
     
     try {
       const axios = require('axios');
       const sharp = require('sharp');
       
+      console.log('  📥 Downloading icon from URL...');
       // 아이콘 다운로드
       const response = await axios.get(this.buildConfig.appIconUrl, { responseType: 'arraybuffer' });
       const iconBuffer = Buffer.from(response.data);
       
+      console.log('  ✅ Icon downloaded successfully, generating Android icons...');
       // Android 아이콘 생성
       await this.generateAndroidIcons(iconBuffer);
+      console.log('  ✅ Android icons generated successfully');
       
       // iOS 아이콘 생성
       if (this.buildConfig.platform === 'ios') {
         await this.generateIOSIcons(iconBuffer);
+        console.log('  ✅ iOS icons generated successfully');
       }
       
     } catch (error) {
@@ -207,9 +227,13 @@ class AppConfigurator {
         `android/app/src/main/res/mipmap-${density}/ic_launcher.png`
       );
       
-      await sharp(iconBuffer)
+      // Convert to PNG first to ensure compatibility
+      const processedIcon = await sharp(iconBuffer)
         .resize(size, size)
         .png()
+        .toBuffer();
+      
+      await sharp(processedIcon)
         .toFile(outputPath);
       
       // 라운드 아이콘도 생성
@@ -218,9 +242,7 @@ class AppConfigurator {
         `android/app/src/main/res/mipmap-${density}/ic_launcher_round.png`
       );
       
-      await sharp(iconBuffer)
-        .resize(size, size)
-        .png()
+      await sharp(processedIcon)
         .toFile(roundOutputPath);
     }
   }

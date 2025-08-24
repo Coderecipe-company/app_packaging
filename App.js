@@ -23,7 +23,7 @@ const App = () => {
     try {
       // 저장된 URL 또는 기본 URL 사용
       const savedUrl = await AsyncStorage.getItem('BASE_URL');
-      const defaultUrl = 'https://withcookie.com'; // 기본 URL
+      const defaultUrl = 'https://vpvmall.com'; // 기본 URL
       
       // 빌드 시 설정된 URL이 있으면 사용, 없으면 기본값
       const baseUrl = savedUrl || process.env.BASE_URL || defaultUrl;

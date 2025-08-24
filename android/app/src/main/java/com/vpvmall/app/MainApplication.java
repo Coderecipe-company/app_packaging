@@ -1,4 +1,4 @@
-package com.apppackaging;
+package com.vpvmall.app;
 
 import android.app.Application;
 import com.facebook.react.PackageList;

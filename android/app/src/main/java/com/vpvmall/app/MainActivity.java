@@ -1,4 +1,4 @@
-package com.apppackaging;
+package com.vpvmall.app;
 
 import com.facebook.react.ReactActivity;
 import com.facebook.react.ReactActivityDelegate;
