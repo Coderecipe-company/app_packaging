@@ -162,8 +162,8 @@ jobs:
         echo "📥 Generating download information..."
         node scripts/generate-artifact-url.js
     
-    # S3 업로드 시도 (선택적 - 작은 파일만)
-    - name: ☁️ Upload to S3 (Optional)
+    # S3 업로드 시도 (압축 후 업로드)
+    - name: ☁️ Upload to S3 with Compression
       continue-on-error: true
       env:
         BUILD_ID: ${{ github.event.client_payload.build_id }}
@@ -176,15 +176,19 @@ jobs:
         if [ -f "$BUILD_FILE" ]; then
           # 파일 크기 확인
           FILE_SIZE_MB=$(du -m "$BUILD_FILE" | cut -f1)
-          echo "📏 File size: ${FILE_SIZE_MB}MB"
+          echo "📏 Original file size: ${FILE_SIZE_MB}MB"
           
-          if [ "$FILE_SIZE_MB" -le 20 ]; then
-            echo "✅ File is small enough for Refrigerator upload"
-            node scripts/upload-to-s3.js || echo "⚠️ Refrigerator upload failed, but GitHub Artifacts is available"
-          else
-            echo "⚠️ File too large for Refrigerator (${FILE_SIZE_MB}MB > 20MB)"
-            echo "📥 Please use GitHub Artifacts download instead"
-          fi
+          echo "🗜️ Attempting compressed upload to S3..."
+          node scripts/upload-compressed.js || {
+            echo "⚠️ Compressed upload failed, trying regular upload..."
+            if [ "$FILE_SIZE_MB" -le 20 ]; then
+              echo "✅ File is small enough for regular Refrigerator upload"
+              node scripts/upload-to-s3.js || echo "⚠️ Regular upload also failed, but GitHub Artifacts is available"
+            else
+              echo "⚠️ File too large for regular Refrigerator (${FILE_SIZE_MB}MB > 20MB)"
+              echo "📥 Please use GitHub Artifacts download instead"
+            fi
+          }
         else
           echo "❌ No build file found"
         fi
