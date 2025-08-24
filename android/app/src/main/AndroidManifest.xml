@@ -68,10 +68,8 @@
         <!-- Firebase Messaging Service is handled by @react-native-firebase/messaging -->
         <!-- No need to declare the service manually -->
         
-        <!-- Firebase Messaging default notification channel -->
-        <meta-data
-            android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="default_notification_channel" />
+        <!-- Firebase Messaging default notification channel - Removed to avoid conflict with @react-native-firebase/messaging -->
+        <!-- The channel is already defined by @react-native-firebase/messaging -->
             
         <!-- Firebase Messaging auto-init -->
         <meta-data
