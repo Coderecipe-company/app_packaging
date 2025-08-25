@@ -78,12 +78,21 @@ class CompressedUploader {
       // 5. S3 업로드 (20MB 이하면 Refrigerator, 초과하면 다른 방법 필요)
       let uploadResult;
       if (compressedSizeMB <= 20) {
-        uploadResult = await this.uploadToRefrigerator(compressedPath, fileName + '.gz');
+        const rawResult = await this.uploadToRefrigerator(compressedPath, fileName + '.gz');
+        uploadResult = {
+          fileUrl: rawResult.file || rawResult.url || rawResult.fileUrl,
+          ...rawResult
+        };
         console.log('✅ Uploaded to Refrigerator (S3):', uploadResult.fileUrl);
       } else {
         // 20MB 초과 시 압축 파일도 업로드 시도
         console.log('⚠️ Compressed file still exceeds 20MB, attempting with unlimited key...');
-        uploadResult = await this.uploadToRefrigeratorUnlimited(compressedPath, fileName + '.gz');
+        const rawResult = await this.uploadToRefrigeratorUnlimited(compressedPath, fileName + '.gz');
+        uploadResult = {
+          fileUrl: rawResult.file || rawResult.url || rawResult.fileUrl,
+          ...rawResult
+        };
+        console.log('✅ Uploaded to Refrigerator (S3) with unlimited key:', uploadResult.fileUrl);
       }
       
       // 6. 압축 파일 삭제 (정리)
@@ -106,6 +115,7 @@ class CompressedUploader {
       }
       
       console.log('✅ Compressed upload completed successfully');
+      console.log('🔗 Download URL:', result.fileUrl);
       return result;
       
     } catch (error) {
@@ -193,7 +203,7 @@ if (require.main === module) {
       console.log(`  File: ${result.fileName}`);
       console.log(`  Compressed: ${result.compressedFileName}`);
       console.log(`  Size reduction: ${result.reduction}%`);
-      console.log(`  Download URL: ${result.fileUrl}`);
+      console.log(`  🔗 Download URL: ${result.fileUrl}`);
       process.exit(0);
     })
     .catch((error) => {
