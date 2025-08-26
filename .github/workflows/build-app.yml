@@ -230,6 +230,7 @@ jobs:
     
     # S3 업로드 시도 (압축 후 업로드)
     - name: ☁️ Upload to S3 with Compression
+      id: s3-upload
       continue-on-error: true
       env:
         BUILD_ID: ${{ github.event.client_payload.build_id }}
@@ -242,60 +243,134 @@ jobs:
         if [ -f "$BUILD_FILE" ]; then
           # 파일 크기 확인
           FILE_SIZE_MB=$(du -m "$BUILD_FILE" | cut -f1)
+          FILE_SIZE_BYTES=$(stat -c%s "$BUILD_FILE" 2>/dev/null || stat -f%z "$BUILD_FILE" 2>/dev/null || echo "0")
           echo "📏 Original file size: ${FILE_SIZE_MB}MB"
           
           echo "🗜️ Attempting compressed upload to S3..."
-          node scripts/upload-compressed.js || {
+          UPLOAD_OUTPUT=$(node scripts/upload-compressed.js 2>&1)
+          UPLOAD_STATUS=$?
+          echo "$UPLOAD_OUTPUT"
+          
+          if [ $UPLOAD_STATUS -eq 0 ]; then
+            # Extract URL from output
+            ARTIFACT_URL=$(echo "$UPLOAD_OUTPUT" | grep "Download URL:" | sed 's/.*Download URL: //')
+            if [ -n "$ARTIFACT_URL" ]; then
+              echo "artifact_url=$ARTIFACT_URL" >> $GITHUB_OUTPUT
+              echo "artifact_size=$FILE_SIZE_BYTES" >> $GITHUB_OUTPUT
+              echo "upload_success=true" >> $GITHUB_OUTPUT
+            fi
+          else
             echo "⚠️ Compressed upload failed, trying regular upload..."
             if [ "$FILE_SIZE_MB" -le 20 ]; then
               echo "✅ File is small enough for regular Refrigerator upload"
-              node scripts/upload-to-s3.js || echo "⚠️ Regular upload also failed, but GitHub Artifacts is available"
+              UPLOAD_OUTPUT=$(node scripts/upload-to-s3.js 2>&1)
+              UPLOAD_STATUS=$?
+              echo "$UPLOAD_OUTPUT"
+              
+              if [ $UPLOAD_STATUS -eq 0 ]; then
+                ARTIFACT_URL=$(echo "$UPLOAD_OUTPUT" | grep "Build file URL:" | sed 's/.*Build file URL: //')
+                if [ -n "$ARTIFACT_URL" ]; then
+                  echo "artifact_url=$ARTIFACT_URL" >> $GITHUB_OUTPUT
+                  echo "artifact_size=$FILE_SIZE_BYTES" >> $GITHUB_OUTPUT
+                  echo "upload_success=true" >> $GITHUB_OUTPUT
+                fi
+              else
+                echo "⚠️ Regular upload also failed, but GitHub Artifacts is available"
+                echo "upload_success=false" >> $GITHUB_OUTPUT
+              fi
             else
               echo "⚠️ File too large for regular Refrigerator (${FILE_SIZE_MB}MB > 20MB)"
               echo "📥 Please use GitHub Artifacts download instead"
+              echo "upload_success=false" >> $GITHUB_OUTPUT
             fi
           }
         else
           echo "❌ No build file found"
+          echo "upload_success=false" >> $GITHUB_OUTPUT
         fi
     
-    # 빌드 결과 알림
-    - name: 📬 Notify build completion
+    # 빌드 결과 알림 (Callback API)
+    - name: 📬 Send build callback notification
       if: always()
       env:
         BUILD_ID: ${{ github.event.client_payload.build_id }}
-        PLATFORM: ${{ steps.fetch-config.outputs.PLATFORM || github.event.client_payload.platform }}
-        BUILD_TYPE: ${{ steps.fetch-config.outputs.BUILD_TYPE || github.event.client_payload.build_type }}
-        S3_UPLOAD_URL: ${{ github.event.client_payload.s3_upload_url }}
         BUILD_STATUS: ${{ job.status }}
+        ARTIFACT_URL: ${{ steps.s3-upload.outputs.artifact_url }}
+        ARTIFACT_SIZE: ${{ steps.s3-upload.outputs.artifact_size }}
+        GITHUB_RUN_ID: ${{ github.run_id }}
+        WEBHOOK_SECRET: "daiughiuWASDFdsafiwkebijk112319dwshab"
+        CALLBACK_URL: "https://system.withcookie.com/api/app-builder/github/callback"
       run: |
-        NOTIFICATION_PAYLOAD=$(cat <<EOF
+        echo "📬 Sending build callback notification..."
+        echo "  Build ID: $BUILD_ID"
+        echo "  Status: $BUILD_STATUS"
+        
+        # Prepare payload based on build status
+        if [ "$BUILD_STATUS" = "success" ]; then
+          # Success payload
+          if [ -n "$ARTIFACT_URL" ]; then
+            PAYLOAD=$(cat <<EOF
         {
-          "build_id": "$BUILD_ID",
-          "platform": "$PLATFORM",
-          "build_type": "$BUILD_TYPE",
-          "status": "$BUILD_STATUS",
-          "build_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-          "github_run_id": "${{ github.run_id }}",
-          "github_run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
-          "download_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts",
-          "download_method": "GitHub Artifacts",
-          "message": "Build completed. Download from GitHub Actions Artifacts section."
+          "buildId": "$BUILD_ID",
+          "status": "success",
+          "artifactUrl": "$ARTIFACT_URL",
+          "artifactSize": ${ARTIFACT_SIZE:-0},
+          "githubRunId": $GITHUB_RUN_ID
         }
         EOF
         )
-        
-        if [ -n "$S3_UPLOAD_URL" ]; then
-          echo "📬 Sending build completion notification..."
-          curl -X POST "$S3_UPLOAD_URL" \
-            -H "Content-Type: application/json" \
-            -d "$NOTIFICATION_PAYLOAD" \
-            || echo "⚠️ Failed to send notification"
+          else
+            # Success but no S3 upload (GitHub Artifacts only)
+            PAYLOAD=$(cat <<EOF
+        {
+          "buildId": "$BUILD_ID",
+          "status": "success",
+          "githubRunId": $GITHUB_RUN_ID,
+          "message": "Build successful. Download from GitHub Artifacts."
+        }
+        EOF
+        )
+          fi
         else
-          echo "⚠️ No notification URL provided"
+          # Failure payload
+          ERROR_MESSAGE="Build failed with status: $BUILD_STATUS"
+          PAYLOAD=$(cat <<EOF
+        {
+          "buildId": "$BUILD_ID",
+          "status": "failure",
+          "error": "$ERROR_MESSAGE",
+          "githubRunId": $GITHUB_RUN_ID
+        }
+        EOF
+        )
         fi
         
-        echo "✅ Build process completed with status: $BUILD_STATUS"
+        # Remove whitespace and newlines from payload
+        PAYLOAD_CLEAN=$(echo "$PAYLOAD" | tr -d '\n' | sed 's/  */ /g')
+        echo "  Payload: $PAYLOAD_CLEAN"
+        
+        # Generate HMAC signature
+        SIGNATURE="sha256=$(echo -n "$PAYLOAD_CLEAN" | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" | cut -d' ' -f2)"
+        echo "  Signature: $SIGNATURE"
+        
+        # Send callback
+        HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$CALLBACK_URL" \
+          -H "Content-Type: application/json" \
+          -H "x-hub-signature-256: $SIGNATURE" \
+          -d "$PAYLOAD_CLEAN")
+        
+        HTTP_CODE=$(echo "$HTTP_RESPONSE" | tail -n1)
+        RESPONSE_BODY=$(echo "$HTTP_RESPONSE" | head -n-1)
+        
+        echo "  Response Code: $HTTP_CODE"
+        if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "204" ]; then
+          echo "✅ Callback notification sent successfully"
+        else
+          echo "⚠️ Callback notification failed (HTTP $HTTP_CODE)"
+          echo "  Response: $RESPONSE_BODY"
+        fi
+        
+        echo "🏁 Build process completed with status: $BUILD_STATUS"
     
     # 아티팩트 저장 (디버그용)
     - name: 📁 Upload build artifacts
