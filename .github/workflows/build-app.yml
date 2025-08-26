@@ -74,6 +74,7 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
     
     # Android 전용 설정
     - name: ☕ Setup JDK (Android)
@@ -107,9 +108,31 @@ jobs:
     # 공통 의존성 설치
     - name: 📦 Install dependencies
       run: |
-        npm install
+        # NPM 레지스트리 설정 및 재시도 설정
+        npm config set registry https://registry.npmjs.org/
+        npm config set fetch-retries 5
+        npm config set fetch-retry-mintimeout 20000
+        npm config set fetch-retry-maxtimeout 120000
+        npm config set maxsockets 5
+        
+        # 캐시 정리
+        npm cache clean --force
+        
+        # 의존성 설치 (재시도 로직 포함)
+        for i in 1 2 3; do
+          echo "📦 Installation attempt $i..."
+          npm install --verbose && break || {
+            if [ $i -eq 3 ]; then
+              echo "❌ Failed after 3 attempts"
+              exit 1
+            fi
+            echo "⏳ Retrying in 10 seconds..."
+            sleep 10
+          }
+        done
+        
         # Sharp 이미지 처리용 (아이콘 생성)
-        npm install sharp
+        npm install sharp || echo "⚠️ Sharp installation failed, continuing..."
     
     # 앱 설정 구성
     - name: 🔧 Configure app settings
