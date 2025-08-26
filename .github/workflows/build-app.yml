@@ -252,12 +252,16 @@ jobs:
           echo "$UPLOAD_OUTPUT"
           
           if [ $UPLOAD_STATUS -eq 0 ]; then
-            # Extract URL from output
-            ARTIFACT_URL=$(echo "$UPLOAD_OUTPUT" | grep "Download URL:" | sed 's/.*Download URL: //')
+            # Extract URL from output (looking for "🔗 Download URL:" line)
+            ARTIFACT_URL=$(echo "$UPLOAD_OUTPUT" | grep "🔗 Download URL:" | sed 's/.*🔗 Download URL: //')
             if [ -n "$ARTIFACT_URL" ]; then
+              echo "✅ Extracted artifact URL: $ARTIFACT_URL"
               echo "artifact_url=$ARTIFACT_URL" >> $GITHUB_OUTPUT
               echo "artifact_size=$FILE_SIZE_BYTES" >> $GITHUB_OUTPUT
               echo "upload_success=true" >> $GITHUB_OUTPUT
+            else
+              echo "⚠️ Upload succeeded but couldn't extract URL"
+              echo "upload_success=false" >> $GITHUB_OUTPUT
             fi
           else
             echo "⚠️ Compressed upload failed, trying regular upload..."
@@ -268,11 +272,16 @@ jobs:
               echo "$UPLOAD_OUTPUT"
               
               if [ $UPLOAD_STATUS -eq 0 ]; then
-                ARTIFACT_URL=$(echo "$UPLOAD_OUTPUT" | grep "Build file URL:" | sed 's/.*Build file URL: //')
+                # Extract URL from output (looking for "📄 Build file URL:" line)
+                ARTIFACT_URL=$(echo "$UPLOAD_OUTPUT" | grep "📄 Build file URL:" | sed 's/.*📄 Build file URL: //')
                 if [ -n "$ARTIFACT_URL" ]; then
+                  echo "✅ Extracted artifact URL: $ARTIFACT_URL"
                   echo "artifact_url=$ARTIFACT_URL" >> $GITHUB_OUTPUT
                   echo "artifact_size=$FILE_SIZE_BYTES" >> $GITHUB_OUTPUT
                   echo "upload_success=true" >> $GITHUB_OUTPUT
+                else
+                  echo "⚠️ Upload succeeded but couldn't extract URL"
+                  echo "upload_success=false" >> $GITHUB_OUTPUT
                 fi
               else
                 echo "⚠️ Regular upload also failed, but GitHub Artifacts is available"
@@ -283,7 +292,7 @@ jobs:
               echo "📥 Please use GitHub Artifacts download instead"
               echo "upload_success=false" >> $GITHUB_OUTPUT
             fi
-          }
+          fi
         else
           echo "❌ No build file found"
           echo "upload_success=false" >> $GITHUB_OUTPUT
