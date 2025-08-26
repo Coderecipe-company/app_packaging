@@ -298,7 +298,7 @@ jobs:
         ARTIFACT_URL: ${{ steps.s3-upload.outputs.artifact_url }}
         ARTIFACT_SIZE: ${{ steps.s3-upload.outputs.artifact_size }}
         GITHUB_RUN_ID: ${{ github.run_id }}
-        WEBHOOK_SECRET: "daiughiuWASDFdsafiwkebijk112319dwshab"
+        API_KEY: "daiughiuWASDFdsafiwkebijk112319dwshab"
         CALLBACK_URL: "https://system.withcookie.com/api/app-builder/github/callback"
       run: |
         echo "📬 Sending build callback notification..."
@@ -345,18 +345,14 @@ jobs:
         )
         fi
         
-        # Remove whitespace and newlines from payload
+        # Remove whitespace and newlines from payload for clean JSON
         PAYLOAD_CLEAN=$(echo "$PAYLOAD" | tr -d '\n' | sed 's/  */ /g')
         echo "  Payload: $PAYLOAD_CLEAN"
         
-        # Generate HMAC signature
-        SIGNATURE="sha256=$(echo -n "$PAYLOAD_CLEAN" | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" | cut -d' ' -f2)"
-        echo "  Signature: $SIGNATURE"
-        
-        # Send callback
+        # Send callback with API key
         HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$CALLBACK_URL" \
           -H "Content-Type: application/json" \
-          -H "x-hub-signature-256: $SIGNATURE" \
+          -H "x-api-key: $API_KEY" \
           -d "$PAYLOAD_CLEAN")
         
         HTTP_CODE=$(echo "$HTTP_RESPONSE" | tail -n1)
