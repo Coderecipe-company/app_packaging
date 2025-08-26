@@ -1,4 +1,4 @@
-package com.vpvmall.app;
+package com.withcookie.systemtest;
 
 import android.app.Application;
 import com.facebook.react.PackageList;

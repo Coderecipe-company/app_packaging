@@ -350,33 +350,107 @@ MYAPP_UPLOAD_KEY_PASSWORD=${this.buildConfig.keyPassword}
     }
   }
 
+  async updateAndroidJavaFiles() {
+    console.log('📦 Updating Android Java files for package:', this.buildConfig.packageName);
+    
+    const javaBasePath = path.join(this.projectRoot, 'android/app/src/main/java');
+    const newPackagePath = this.buildConfig.packageName.replace(/\./g, '/');
+    const newPackageDir = path.join(javaBasePath, newPackagePath);
+    
+    // Find existing Java files (MainActivity.java and MainApplication.java)
+    const findJavaFiles = (dir) => {
+      const files = [];
+      if (fs.existsSync(dir)) {
+        const items = fs.readdirSync(dir, { withFileTypes: true });
+        for (const item of items) {
+          if (item.isDirectory()) {
+            files.push(...findJavaFiles(path.join(dir, item.name)));
+          } else if (item.name.endsWith('.java') && 
+                    (item.name === 'MainActivity.java' || item.name === 'MainApplication.java')) {
+            files.push(path.join(dir, item.name));
+          }
+        }
+      }
+      return files;
+    };
+    
+    const existingJavaFiles = findJavaFiles(javaBasePath);
+    console.log('  Found Java files:', existingJavaFiles);
+    
+    // Create new package directory structure
+    if (!fs.existsSync(newPackageDir)) {
+      fs.mkdirSync(newPackageDir, { recursive: true });
+      console.log('  Created package directory:', newPackageDir);
+    }
+    
+    // Move and update Java files
+    for (const oldFilePath of existingJavaFiles) {
+      const fileName = path.basename(oldFilePath);
+      const newFilePath = path.join(newPackageDir, fileName);
+      
+      // Read the file content
+      let content = fs.readFileSync(oldFilePath, 'utf8');
+      
+      // Update package declaration
+      content = content.replace(
+        /^package\s+[^;]+;/m,
+        `package ${this.buildConfig.packageName};`
+      );
+      
+      // Write to new location
+      fs.writeFileSync(newFilePath, content);
+      console.log(`  ✅ Updated ${fileName} with new package name`);
+      
+      // Delete old file if it's in a different location
+      if (oldFilePath !== newFilePath) {
+        fs.unlinkSync(oldFilePath);
+      }
+    }
+    
+    // Clean up old empty directories
+    const cleanEmptyDirs = (dir) => {
+      if (fs.existsSync(dir) && fs.statSync(dir).isDirectory()) {
+        let items = fs.readdirSync(dir);
+        if (items.length === 0) {
+          fs.rmdirSync(dir);
+          // Check parent directory
+          const parentDir = path.dirname(dir);
+          if (parentDir !== javaBasePath) {
+            cleanEmptyDirs(parentDir);
+          }
+        } else {
+          // Check subdirectories
+          items.forEach(item => {
+            const itemPath = path.join(dir, item);
+            if (fs.statSync(itemPath).isDirectory()) {
+              cleanEmptyDirs(itemPath);
+            }
+          });
+          // Re-check if this directory is now empty
+          items = fs.readdirSync(dir);
+          if (items.length === 0 && dir !== javaBasePath) {
+            fs.rmdirSync(dir);
+          }
+        }
+      }
+    };
+    
+    // Clean up com directory (but not the new package directory)
+    const comDir = path.join(javaBasePath, 'com');
+    if (fs.existsSync(comDir)) {
+      cleanEmptyDirs(comDir);
+    }
+    
+    console.log('  ✅ Java files updated successfully');
+  }
+
   async configureAndroid() {
     console.log('🤖 Configuring Android specific settings...');
     
-    // Java 패키지명 변경
-    const oldPackagePath = path.join(this.projectRoot, 'android/app/src/main/java/com/apppackaging');
-    const newPackagePath = path.join(this.projectRoot, `android/app/src/main/java/${this.buildConfig.packageName.replace(/\./g, '/')}`);
+    // Update Java files with new package name
+    await this.updateAndroidJavaFiles();
     
-    if (fs.existsSync(oldPackagePath) && oldPackagePath !== newPackagePath) {
-      // 새 디렉토리 생성
-      fs.mkdirSync(newPackagePath, { recursive: true });
-      
-      // 파일들 복사 및 패키지명 변경
-      const javaFiles = fs.readdirSync(oldPackagePath);
-      for (const file of javaFiles) {
-        const oldFilePath = path.join(oldPackagePath, file);
-        const newFilePath = path.join(newPackagePath, file);
-        
-        let content = fs.readFileSync(oldFilePath, 'utf8');
-        content = content.replace(/package com\.apppackaging;/, `package ${this.buildConfig.packageName};`);
-        fs.writeFileSync(newFilePath, content);
-      }
-      
-      // 기존 디렉토리 삭제 (다른 패키지명인 경우만)
-      if (this.buildConfig.packageName !== 'com.apppackaging') {
-        fs.rmSync(oldPackagePath, { recursive: true, force: true });
-      }
-    }
+    console.log('✅ Android configuration completed');
   }
 
   async configureIOS() {

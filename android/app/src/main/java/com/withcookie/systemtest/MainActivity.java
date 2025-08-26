@@ -1,4 +1,4 @@
-package com.vpvmall.app;
+package com.withcookie.systemtest;
 
 import com.facebook.react.ReactActivity;
 import com.facebook.react.ReactActivityDelegate;
