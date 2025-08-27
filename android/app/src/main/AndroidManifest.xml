@@ -20,6 +20,29 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
 
+    <!-- Payment app queries for Android 11+ -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
+        <!-- Payment app schemes -->
+        <package android:name="com.kakao.talk" />
+        <package android:name="com.kakao.kakaopay" />
+        <package android:name="com.nhn.android.search" />
+        <package android:name="com.samsung.android.spay" />
+        <package android:name="com.ssg.serviceapp.android.easypaymentsservice" />
+        <package android:name="com.lotte.lpay" />
+        <package android:name="com.kbankwith.smartbank" />
+        <package android:name="com.toss" />
+        <package android:name="kvp.jjy.MispAndroid320" />
+        <package android:name="com.kftc.bankpay.android" />
+    </queries>
+
     <application
         android:name=".MainApplication"
         android:label="@string/app_name"

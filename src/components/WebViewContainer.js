@@ -6,6 +6,7 @@ import {
   Alert,
   Dimensions,
   Platform,
+  Linking,
 } from 'react-native';
 import {WebView} from 'react-native-webview';
 import Orientation from 'react-native-orientation-locker';
@@ -188,6 +189,118 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
     ? 'Mozilla/5.0 (Linux; Android 10; Mobile App) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/88.0.4324.181 Mobile Safari/537.36'
     : 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1';
 
+  // 결제 관련 URL 처리
+  const handleShouldStartLoadWithRequest = (request) => {
+    const url = request.url;
+    
+    // 결제 관련 스킴 목록
+    const paymentSchemes = [
+      'intent://', // 안드로이드 인텐트
+      'kakaopay://', // 카카오페이
+      'payco://', // 페이코
+      'chaipay://', // 차이페이
+      'toss://', // 토스
+      'naverpay://', // 네이버페이
+      'samsungpay://', // 삼성페이
+      'kbankpay://', // 케이뱅크
+      'ispmobile://', // ISP 모바일
+      'hdcardappcardansimclick://', // 현대카드
+      'shinhan-sr-ansimclick://', // 신한카드
+      'kb-acp://', // 국민카드
+      'mpocket.online.ansimclick://', // 삼성카드
+      'lottemembers://', // 롯데카드
+      'lotteappcard://', // 롯데앱카드
+      'cloudpay://', // 하나카드
+      'nhappcardansimclick://', // 농협카드
+      'citispay://', // 씨티카드
+      'citicardappkr://', // 씨티카드 한국
+      'wooripay://', // 우리페이
+      'shinsegaeeasypayment://', // 신세계페이
+      'lpayapp://', // L페이
+      'hanawalletmembers://', // 하나월렛
+      'tauthlink://', // 패스 인증
+      'ktauthexternalcall://', // KT 인증
+      'upluscorporation://', // LG U+ 인증
+    ];
+    
+    // 결제 관련 도메인 (PG사)
+    const paymentDomains = [
+      'pgapi.korpay.com',
+      'kcp.co.kr',
+      'inicis.com',
+      'nicepay.co.kr',
+      'danal.co.kr',
+      'kicc.co.kr',
+      'mobilians.co.kr',
+      'paygate.net',
+      'galaxia.co.kr',
+      'tosspayments.com',
+      'bootpay.co.kr',
+      'iamport.kr',
+    ];
+    
+    // 결제 관련 스킴인지 확인
+    const isPaymentScheme = paymentSchemes.some(scheme => url.startsWith(scheme));
+    
+    // 결제 관련 도메인인지 확인
+    const isPaymentDomain = paymentDomains.some(domain => url.includes(domain));
+    
+    // market:// 또는 앱스토어 URL 처리
+    const isMarketUrl = url.startsWith('market://') || 
+                       url.includes('play.google.com/store') ||
+                       url.includes('apps.apple.com') ||
+                       url.includes('itunes.apple.com');
+    
+    if (isPaymentScheme || isMarketUrl) {
+      // 외부 앱으로 연결
+      if (Platform.OS === 'android' && url.startsWith('intent://')) {
+        // 안드로이드 인텐트 URL 처리
+        const intentUrl = url.replace('intent://', 'https://');
+        Linking.canOpenURL(intentUrl)
+          .then((supported) => {
+            if (supported) {
+              Linking.openURL(url);
+            } else {
+              // 마켓 URL 추출 시도
+              const marketMatch = url.match(/market:\/\/[^#]+/);
+              if (marketMatch) {
+                Linking.openURL(marketMatch[0]);
+              } else {
+                Alert.alert('알림', '해당 앱이 설치되어 있지 않습니다.');
+              }
+            }
+          })
+          .catch((err) => {
+            console.error('URL open error:', err);
+            Alert.alert('오류', '앱을 열 수 없습니다.');
+          });
+      } else {
+        // 일반 URL Scheme 처리
+        Linking.canOpenURL(url)
+          .then((supported) => {
+            if (supported) {
+              Linking.openURL(url);
+            } else {
+              Alert.alert('알림', '해당 앱이 설치되어 있지 않습니다.');
+            }
+          })
+          .catch((err) => {
+            console.error('URL open error:', err);
+            Alert.alert('오류', '앱을 열 수 없습니다.');
+          });
+      }
+      return false; // WebView에서 로드하지 않음
+    }
+    
+    // 결제 페이지에서 window.open 대체 처리
+    if (isPaymentDomain) {
+      // 결제 페이지는 WebView에서 계속 처리
+      return true;
+    }
+    
+    return true; // 일반 URL은 WebView에서 로드
+  };
+
   return (
     <View style={styles.container}>
       <WebView
@@ -223,9 +336,7 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
         allowUniversalAccessFromFileURLs={true}
         allowFileAccessFromFileURLs={true}
         setSupportMultipleWindows={false}
-        onShouldStartLoadWithRequest={(request) => {
-          return true;
-        }}
+        onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
       />
       {loading && (
         <View style={styles.loadingContainer}>

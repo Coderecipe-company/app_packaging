@@ -326,7 +326,14 @@ class AppConfigurator {
     
     try {
       const axios = require('axios');
-      const response = await axios.get(this.buildConfig.keystoreUrl, { responseType: 'arraybuffer' });
+      // Fix CDN domain: cdn.withcookie.com -> withcookie.b-cdn.net
+      let keystoreUrl = this.buildConfig.keystoreUrl;
+      if (keystoreUrl.includes('cdn.withcookie.com')) {
+        keystoreUrl = keystoreUrl.replace('cdn.withcookie.com', 'withcookie.b-cdn.net');
+        console.log(`  📝 Fixed keystore URL: ${keystoreUrl}`);
+      }
+      
+      const response = await axios.get(keystoreUrl, { responseType: 'arraybuffer' });
       const keystorePath = path.join(this.projectRoot, 'android/app/release.keystore');
       fs.writeFileSync(keystorePath, Buffer.from(response.data));
       
