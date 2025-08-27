@@ -2,10 +2,9 @@
 
 const fs = require('fs');
 const path = require('path');
-const zlib = require('zlib');
+const archiver = require('archiver');
 const FormData = require('form-data');
 const axios = require('axios');
-const { pipeline } = require('stream/promises');
 
 class CompressedUploader {
   constructor() {
@@ -28,28 +27,42 @@ class CompressedUploader {
   }
 
   async compressFile(inputPath, outputPath) {
-    console.log('🗜️ Compressing file...');
+    console.log('🗜️ Creating ZIP archive...');
     const startSize = fs.statSync(inputPath).size;
     
-    // gzip 압축
-    await pipeline(
-      fs.createReadStream(inputPath),
-      zlib.createGzip({ level: 9 }), // 최대 압축
-      fs.createWriteStream(outputPath)
-    );
-    
-    const endSize = fs.statSync(outputPath).size;
-    const reduction = ((1 - endSize / startSize) * 100).toFixed(1);
-    
-    console.log(`  Original size: ${(startSize / 1024 / 1024).toFixed(2)}MB`);
-    console.log(`  Compressed size: ${(endSize / 1024 / 1024).toFixed(2)}MB`);
-    console.log(`  Reduction: ${reduction}%`);
-    
-    return {
-      originalSize: startSize,
-      compressedSize: endSize,
-      reduction: reduction
-    };
+    return new Promise((resolve, reject) => {
+      const output = fs.createWriteStream(outputPath);
+      const archive = archiver('zip', {
+        zlib: { level: 9 } // 최대 압축
+      });
+      
+      output.on('close', () => {
+        const endSize = archive.pointer();
+        const reduction = ((1 - endSize / startSize) * 100).toFixed(1);
+        
+        console.log(`  Original size: ${(startSize / 1024 / 1024).toFixed(2)}MB`);
+        console.log(`  Compressed size: ${(endSize / 1024 / 1024).toFixed(2)}MB`);
+        console.log(`  Reduction: ${reduction}%`);
+        
+        resolve({
+          originalSize: startSize,
+          compressedSize: endSize,
+          reduction: reduction
+        });
+      });
+      
+      archive.on('error', (err) => {
+        reject(err);
+      });
+      
+      archive.pipe(output);
+      
+      // APK 파일만 ZIP에 추가 (파일명만 유지)
+      const fileName = path.basename(inputPath);
+      archive.file(inputPath, { name: fileName });
+      
+      archive.finalize();
+    });
   }
 
   async uploadCompressed() {
@@ -65,13 +78,14 @@ class CompressedUploader {
       console.log('📁 Found build file:', buildFilePath);
       const fileName = path.basename(buildFilePath);
       
-      // 2. 압축 파일 경로 설정 (임시 gz 파일)
-      const tempCompressedPath = buildFilePath + '.tmp.gz';
+      // 2. 압축 파일 경로 설정 (임시 zip 파일)
+      const tempCompressedPath = buildFilePath + '.tmp.zip';
       const fileExtension = path.extname(buildFilePath); // .apk, .aab, .ipa
       const fileNameWithoutExt = path.basename(buildFilePath, fileExtension);
-      const compressedFileName = fileNameWithoutExt + '-compressed' + fileExtension;
+      // 압축 파일임을 명확히 표시 (.apk.zip, .aab.zip, .ipa.zip)
+      const compressedFileName = fileNameWithoutExt + '.zip';
       
-      // 3. 파일 압축 (임시 gz 파일로)
+      // 3. 파일 압축 (임시 zip 파일로)
       const compressionResult = await this.compressFile(buildFilePath, tempCompressedPath);
       
       // 4. 압축 파일 크기 확인
@@ -119,8 +133,12 @@ class CompressedUploader {
       
       console.log('✅ Compressed upload completed successfully');
       console.log('🔗 Download URL:', result.fileUrl);
-      console.log('📝 Note: File is gzip compressed. Decompress before installing:');
-      console.log(`    gunzip ${result.compressedFileName}`);
+      console.log('');
+      console.log('⚠️  IMPORTANT: File is ZIP compressed');
+      console.log('📱 To install on Android:');
+      console.log(`    1. Download: ${result.compressedFileName}`);
+      console.log(`    2. Extract: unzip ${result.compressedFileName}`);
+      console.log(`    3. Install: adb install ${result.fileName}`);
       return result;
       
     } catch (error) {
