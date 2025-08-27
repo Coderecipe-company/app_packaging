@@ -1,4 +1,4 @@
-import React, {forwardRef, useImperativeHandle, useRef, useState} from 'react';
+import React, {forwardRef, useImperativeHandle, useRef, useState, useEffect} from 'react';
 import {
   View,
   StyleSheet,
@@ -14,6 +14,8 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
   const webViewRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [canGoBack, setCanGoBack] = useState(false);
+  const loadingTimeoutRef = useRef(null);
+  const loadStartTimeRef = useRef(null);
 
   useImperativeHandle(ref, () => ({
     goBack: () => {
@@ -33,12 +35,52 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
     },
   }));
 
+  // 컴포넌트 언마운트 시 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleLoadStart = () => {
     setLoading(true);
+    loadStartTimeRef.current = Date.now();
+    
+    // 기존 타임아웃 클리어
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+    }
+    
+    // 10초 후 자동으로 로딩 인디케이터 숨기기
+    loadingTimeoutRef.current = setTimeout(() => {
+      console.warn('Loading timeout - forcing loading indicator off');
+      setLoading(false);
+    }, 10000);
   };
 
   const handleLoadEnd = () => {
+    // 타임아웃 클리어
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+      loadingTimeoutRef.current = null;
+    }
+    
+    // 로딩 시간 로깅
+    if (loadStartTimeRef.current) {
+      const loadTime = Date.now() - loadStartTimeRef.current;
+      console.log(`Page loaded in ${loadTime}ms`);
+    }
+    
     setLoading(false);
+  };
+
+  const handleLoadProgress = ({nativeEvent}) => {
+    // 95% 이상 로드되면 로딩 인디케이터 숨기기
+    if (nativeEvent.progress > 0.95) {
+      setLoading(false);
+    }
   };
 
   const handleNavigationStateChange = (navState) => {
@@ -83,6 +125,16 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
         `;
         webViewRef.current?.injectJavaScript(script);
       }
+      
+      // DOM 로드 완료 시 로딩 인디케이터 숨기기
+      if (data.type === 'PAGE_LOADED') {
+        console.log('Page DOM loaded - hiding loading indicator');
+        setLoading(false);
+        if (loadingTimeoutRef.current) {
+          clearTimeout(loadingTimeoutRef.current);
+          loadingTimeoutRef.current = null;
+        }
+      }
     } catch (error) {
       console.warn('Message parsing error:', error);
     }
@@ -115,6 +167,19 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
         }));
       };
       
+      // DOM 로드 완료 감지
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'PAGE_LOADED'
+        }));
+      } else {
+        window.addEventListener('DOMContentLoaded', function() {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'PAGE_LOADED'
+          }));
+        });
+      }
+      
       true;
     })();
   `;
@@ -131,6 +196,7 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
         style={styles.webview}
         onLoadStart={handleLoadStart}
         onLoadEnd={handleLoadEnd}
+        onLoadProgress={handleLoadProgress}
         onError={handleError}
         onNavigationStateChange={handleNavigationStateChange}
         onMessage={handleMessage}
