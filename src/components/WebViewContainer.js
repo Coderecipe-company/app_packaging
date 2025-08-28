@@ -7,16 +7,23 @@ import {
   Dimensions,
   Platform,
   Linking,
+  Modal,
+  SafeAreaView,
+  TouchableOpacity,
+  Text,
 } from 'react-native';
 import {WebView} from 'react-native-webview';
 import Orientation from 'react-native-orientation-locker';
 
 const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
   const webViewRef = useRef(null);
+  const popupWebViewRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [canGoBack, setCanGoBack] = useState(false);
   const loadingTimeoutRef = useRef(null);
   const loadStartTimeRef = useRef(null);
+  const [popupVisible, setPopupVisible] = useState(false);
+  const [popupUrl, setPopupUrl] = useState('');
 
   useImperativeHandle(ref, () => ({
     goBack: () => {
@@ -268,14 +275,16 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
   // 결제 관련 URL 처리
   const handleShouldStartLoadWithRequest = (request) => {
     const url = request.url;
+    console.log('URL Loading Request:', url);
     
     // 결제 관련 스킴 목록
     const paymentSchemes = [
       'intent://', // 안드로이드 인텐트
+      'supertoss://', // 토스 앱
+      'toss://', // 토스
       'kakaopay://', // 카카오페이
       'payco://', // 페이코
       'chaipay://', // 차이페이
-      'toss://', // 토스
       'naverpay://', // 네이버페이
       'samsungpay://', // 삼성페이
       'kbankpay://', // 케이뱅크
@@ -299,27 +308,8 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
       'upluscorporation://', // LG U+ 인증
     ];
     
-    // 결제 관련 도메인 (PG사)
-    const paymentDomains = [
-      'pgapi.korpay.com',
-      'kcp.co.kr',
-      'inicis.com',
-      'nicepay.co.kr',
-      'danal.co.kr',
-      'kicc.co.kr',
-      'mobilians.co.kr',
-      'paygate.net',
-      'galaxia.co.kr',
-      'tosspayments.com',
-      'bootpay.co.kr',
-      'iamport.kr',
-    ];
-    
     // 결제 관련 스킴인지 확인
     const isPaymentScheme = paymentSchemes.some(scheme => url.startsWith(scheme));
-    
-    // 결제 관련 도메인인지 확인
-    const isPaymentDomain = paymentDomains.some(domain => url.includes(domain));
     
     // market:// 또는 앱스토어 URL 처리
     const isMarketUrl = url.startsWith('market://') || 
@@ -328,28 +318,32 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
                        url.includes('itunes.apple.com');
     
     if (isPaymentScheme || isMarketUrl) {
+      console.log('Opening payment app:', url);
+      
       // 외부 앱으로 연결
       if (Platform.OS === 'android' && url.startsWith('intent://')) {
-        // 안드로이드 인텐트 URL 처리
-        const intentUrl = url.replace('intent://', 'https://');
-        Linking.canOpenURL(intentUrl)
-          .then((supported) => {
-            if (supported) {
-              Linking.openURL(url);
+        // intent URL 파싱하여 앱 실행 시도
+        try {
+          // S.browser_fallback_url 추출
+          const fallbackMatch = url.match(/S\.browser_fallback_url=([^;#]+)/);
+          const packageMatch = url.match(/package=([^;#]+)/);
+          
+          // 먼저 intent URL로 앱 실행 시도
+          Linking.openURL(url).catch(() => {
+            // 실패시 fallback URL 또는 마켓으로 이동
+            if (fallbackMatch && fallbackMatch[1]) {
+              const fallbackUrl = decodeURIComponent(fallbackMatch[1]);
+              Linking.openURL(fallbackUrl);
+            } else if (packageMatch && packageMatch[1]) {
+              // 패키지명으로 마켓 열기
+              Linking.openURL(`market://details?id=${packageMatch[1]}`);
             } else {
-              // 마켓 URL 추출 시도
-              const marketMatch = url.match(/market:\/\/[^#]+/);
-              if (marketMatch) {
-                Linking.openURL(marketMatch[0]);
-              } else {
-                Alert.alert('알림', '해당 앱이 설치되어 있지 않습니다.');
-              }
+              Alert.alert('알림', '토스 앱을 설치해주세요.');
             }
-          })
-          .catch((err) => {
-            console.error('URL open error:', err);
-            Alert.alert('오류', '앱을 열 수 없습니다.');
           });
+        } catch (err) {
+          console.error('Intent URL parsing error:', err);
+        }
       } else {
         // 일반 URL Scheme 처리
         Linking.canOpenURL(url)
@@ -357,21 +351,34 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
             if (supported) {
               Linking.openURL(url);
             } else {
-              Alert.alert('알림', '해당 앱이 설치되어 있지 않습니다.');
+              // 토스 관련 스킴인 경우 마켓으로 안내
+              if (url.startsWith('supertoss://') || url.startsWith('toss://')) {
+                Alert.alert(
+                  '토스 앱 설치',
+                  '토스 앱이 설치되어 있지 않습니다. 설치하시겠습니까?',
+                  [
+                    {text: '취소', style: 'cancel'},
+                    {
+                      text: '설치',
+                      onPress: () => {
+                        const marketUrl = Platform.OS === 'android'
+                          ? 'market://details?id=viva.republica.toss'
+                          : 'https://apps.apple.com/kr/app/id839333328';
+                        Linking.openURL(marketUrl);
+                      }
+                    }
+                  ]
+                );
+              } else {
+                Alert.alert('알림', '해당 앱이 설치되어 있지 않습니다.');
+              }
             }
           })
           .catch((err) => {
             console.error('URL open error:', err);
-            Alert.alert('오류', '앱을 열 수 없습니다.');
           });
       }
       return false; // WebView에서 로드하지 않음
-    }
-    
-    // 결제 페이지에서 window.open 대체 처리
-    if (isPaymentDomain) {
-      // 결제 페이지는 WebView에서 계속 처리
-      return true;
     }
     
     return true; // 일반 URL은 WebView에서 로드
@@ -423,19 +430,111 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
         allowFileAccess={true}
         allowUniversalAccessFromFileURLs={true}
         allowFileAccessFromFileURLs={true}
-        setSupportMultipleWindows={false}
+        setSupportMultipleWindows={true}
         originWhitelist={['*']}
         javaScriptCanOpenWindowsAutomatically={true}
         cacheEnabled={true}
         cacheMode="LOAD_DEFAULT"
         incognito={false}
         onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
+        onOpenWindow={({nativeEvent}) => {
+          // 새 창 열기 요청 (팝업)
+          const newWindowUrl = nativeEvent.targetUrl;
+          console.log('Popup window request:', newWindowUrl);
+          
+          if (newWindowUrl) {
+            // 팝업 WebView 열기
+            setPopupUrl(newWindowUrl);
+            setPopupVisible(true);
+          }
+        }}
       />
       {loading && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007AFF" />
         </View>
       )}
+      
+      {/* 팝업 WebView Modal */}
+      <Modal
+        visible={popupVisible}
+        animationType="slide"
+        onRequestClose={() => setPopupVisible(false)}
+        transparent={false}>
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity 
+              onPress={() => {
+                if (popupWebViewRef.current?.canGoBack) {
+                  popupWebViewRef.current.goBack();
+                } else {
+                  setPopupVisible(false);
+                  setPopupUrl('');
+                }
+              }}
+              style={styles.modalButton}>
+              <Text style={styles.modalButtonText}>{'< 뒤로'}</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>결제</Text>
+            <TouchableOpacity 
+              onPress={() => {
+                setPopupVisible(false);
+                setPopupUrl('');
+                // 메인 WebView 새로고침
+                if (webViewRef.current) {
+                  webViewRef.current.reload();
+                }
+              }}
+              style={styles.modalButton}>
+              <Text style={styles.modalButtonText}>닫기</Text>
+            </TouchableOpacity>
+          </View>
+          
+          {popupUrl ? (
+            <WebView
+              ref={popupWebViewRef}
+              source={{uri: popupUrl}}
+              style={styles.webview}
+              onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
+              startInLoadingState={true}
+              mixedContentMode="always"
+              thirdPartyCookiesEnabled={true}
+              sharedCookiesEnabled={true}
+              setSupportMultipleWindows={false}
+              originWhitelist={['*']}
+              javaScriptCanOpenWindowsAutomatically={true}
+              userAgent={userAgent}
+              injectedJavaScriptBeforeContentLoaded={`
+                // 팝업창에서도 opener 설정
+                window.opener = window.parent || window;
+                window.opener.getFormData = function() { return {}; };
+                window.getFormData = function() { return {}; };
+                true;
+              `}
+              onMessage={(event) => {
+                // 팝업에서 메시지 처리
+                console.log('Popup message:', event.nativeEvent.data);
+              }}
+              onNavigationStateChange={(navState) => {
+                // 결제 완료 감지
+                if (navState.url.includes('success') || 
+                    navState.url.includes('complete') || 
+                    navState.url.includes('callback')) {
+                  setTimeout(() => {
+                    setPopupVisible(false);
+                    setPopupUrl('');
+                    if (webViewRef.current) {
+                      webViewRef.current.reload();
+                    }
+                  }, 1000);
+                }
+              }}
+            />
+          ) : null}
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 });
@@ -457,6 +556,34 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+  },
+  modalHeader: {
+    height: 44,
+    backgroundColor: '#f8f8f8',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    paddingHorizontal: 10,
+  },
+  modalButton: {
+    padding: 8,
+    minWidth: 50,
+  },
+  modalButtonText: {
+    color: '#007AFF',
+    fontSize: 16,
+  },
+  modalTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
