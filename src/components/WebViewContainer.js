@@ -170,26 +170,79 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
       };
       
       // PG 결제 호환성을 위한 설정
-      // window.open이 현재 창에서 열리도록 오버라이드
+      // 결제 데이터 저장용 전역 변수
+      window.__paymentData = window.__paymentData || {};
+      
+      // window.opener 설정 (결제창이 opener를 찾을 때)
+      if (!window.opener) {
+        window.opener = window;
+      }
+      
+      // opener의 getFormData 함수 제공
+      window.opener.getFormData = function() {
+        console.log('getFormData called');
+        return window.__paymentData || {};
+      };
+      
+      // window.getFormData도 제공 (일부 PG사는 이렇게 호출)
+      window.getFormData = function() {
+        console.log('getFormData called from window');
+        return window.__paymentData || {};
+      };
+      
+      // 결제 데이터 설정 함수
+      window.setPaymentData = function(data) {
+        window.__paymentData = data;
+        console.log('Payment data set:', data);
+      };
+      
+      // window.open 오버라이드
       const originalOpen = window.open;
       window.open = function(url, name, features) {
-        // '_blank'를 '_self'로 변경하여 현재 창에서 열기
-        if (name === '_blank') {
+        console.log('window.open called:', url, name, features);
+        
+        // 결제창인 경우 현재 창에서 열기
+        if (name === '_blank' || name === 'payment' || url.includes('pay')) {
+          // 새 창 객체 반환 (결제창이 참조할 수 있도록)
+          const newWindow = {
+            closed: false,
+            opener: window,
+            location: { href: url },
+            document: { },
+            getFormData: window.getFormData,
+            postMessage: function(message, origin) {
+              console.log('postMessage from payment window:', message);
+            },
+            close: function() {
+              this.closed = true;
+              window.history.back();
+            }
+          };
+          
+          // 현재 창에서 URL 로드
           window.location.href = url;
-          return window;
+          
+          return newWindow;
         }
+        
         return originalOpen.call(window, url, name, features);
       };
       
       // iframe 지원 개선
-      document.domain = document.domain;
+      try {
+        document.domain = document.domain;
+      } catch(e) {
+        console.log('Could not set document.domain');
+      }
       
       // postMessage 호환성
-      if (!window.postMessage) {
-        window.postMessage = function(message, targetOrigin) {
-          console.log('postMessage:', message, targetOrigin);
-        };
-      }
+      const originalPostMessage = window.postMessage;
+      window.postMessage = function(message, targetOrigin) {
+        console.log('postMessage:', message, targetOrigin);
+        if (originalPostMessage) {
+          originalPostMessage.call(window, message, targetOrigin);
+        }
+      };
       
       // DOM 로드 완료 감지
       if (document.readyState === 'complete' || document.readyState === 'interactive') {
@@ -337,6 +390,18 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
         onNavigationStateChange={handleNavigationStateChange}
         onMessage={handleMessage}
         injectedJavaScript={injectedJavaScript}
+        injectedJavaScriptBeforeContentLoaded={`
+          // 페이지 로드 전에 필수 함수들 설정
+          window.__paymentData = {};
+          window.opener = window;
+          window.opener.getFormData = function() {
+            return window.__paymentData || {};
+          };
+          window.getFormData = function() {
+            return window.__paymentData || {};
+          };
+          true;
+        `}
         userAgent={userAgent}
         javaScriptEnabled={true}
         domStorageEnabled={true}
