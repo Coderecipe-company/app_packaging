@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import {WebView} from 'react-native-webview';
 import Orientation from 'react-native-orientation-locker';
-import ModalWebView from './ModalWebView';
 
 const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
   const webViewRef = useRef(null);
@@ -18,8 +17,6 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
   const [canGoBack, setCanGoBack] = useState(false);
   const loadingTimeoutRef = useRef(null);
   const loadStartTimeRef = useRef(null);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [modalUrl, setModalUrl] = useState('');
 
   useImperativeHandle(ref, () => ({
     goBack: () => {
@@ -130,15 +127,6 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
         webViewRef.current?.injectJavaScript(script);
       }
       
-      // window.open으로 외부 URL 열기 요청
-      if (data.type === 'OPEN_EXTERNAL') {
-        console.log('Opening payment URL in modal:', data.url);
-        if (data.url) {
-          // 모달 WebView에서 열기
-          setModalUrl(data.url);
-          setModalVisible(true);
-        }
-      }
       
       // DOM 로드 완료 시 로딩 인디케이터 숨기기
       if (data.type === 'PAGE_LOADED') {
@@ -181,58 +169,25 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
         }));
       };
       
-      // window.open 오버라이드 - 결제창 처리
+      // PG 결제 호환성을 위한 설정
+      // window.open이 현재 창에서 열리도록 오버라이드
       const originalOpen = window.open;
-      window.open = function(url, target, features) {
-        console.log('window.open intercepted:', url, target, features);
-        
-        // 결제 관련 URL 패턴
-        const paymentPatterns = [
-          'pgapi.korpay.com',
-          'pay',
-          'payment',
-          'checkout',
-          'kcp.co.kr',
-          'inicis.com',
-          'nicepay.co.kr',
-          'danal.co.kr',
-          'toss',
-          'kakao',
-          'naver'
-        ];
-        
-        // URL이 결제 관련인지 확인
-        const isPaymentUrl = url && paymentPatterns.some(pattern => 
-          url.toLowerCase().includes(pattern)
-        );
-        
-        if (isPaymentUrl) {
-          // React Native로 메시지 전송
-          window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'OPEN_EXTERNAL',
-            url: url
-          }));
-          
-          // 빈 객체 반환 (window.opener 호환성)
-          return {
-            closed: false,
-            document: { },
-            location: { href: url },
-            opener: window,
-            postMessage: function() { },
-            close: function() { this.closed = true; }
-          };
+      window.open = function(url, name, features) {
+        // '_blank'를 '_self'로 변경하여 현재 창에서 열기
+        if (name === '_blank') {
+          window.location.href = url;
+          return window;
         }
-        
-        // 일반 URL은 기존 window.open 사용
-        return originalOpen.call(window, url, target, features);
+        return originalOpen.call(window, url, name, features);
       };
       
-      // opener 객체가 있는 경우 처리
-      if (window.opener) {
-        // getFormData 같은 함수 제공
-        window.opener.getFormData = window.opener.getFormData || function() {
-          return {};
+      // iframe 지원 개선
+      document.domain = document.domain;
+      
+      // postMessage 호환성
+      if (!window.postMessage) {
+        window.postMessage = function(message, targetOrigin) {
+          console.log('postMessage:', message, targetOrigin);
         };
       }
       
@@ -386,12 +341,12 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
         javaScriptEnabled={true}
         domStorageEnabled={true}
         startInLoadingState={true}
-        scalesPageToFit={true}
+        scalesPageToFit={false}
         mixedContentMode="always"
         allowsInlineMediaPlayback={true}
         mediaPlaybackRequiresUserAction={false}
         allowsFullscreenVideo={true}
-        pullToRefreshEnabled={true}
+        pullToRefreshEnabled={false}
         bounces={false}
         scrollEnabled={true}
         showsHorizontalScrollIndicator={false}
@@ -403,44 +358,19 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
         allowFileAccess={true}
         allowUniversalAccessFromFileURLs={true}
         allowFileAccessFromFileURLs={true}
-        setSupportMultipleWindows={true}
+        setSupportMultipleWindows={false}
+        originWhitelist={['*']}
+        javaScriptCanOpenWindowsAutomatically={true}
+        cacheEnabled={true}
+        cacheMode="LOAD_DEFAULT"
+        incognito={false}
         onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
-        onOpenWindow={({nativeEvent}) => {
-          // 새 창 열기 요청 처리
-          const newWindowUrl = nativeEvent.targetUrl;
-          console.log('Window open request:', newWindowUrl);
-          
-          if (newWindowUrl) {
-            // 모든 새 창 요청을 모달로 처리
-            setModalUrl(newWindowUrl);
-            setModalVisible(true);
-          }
-        }}
       />
       {loading && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007AFF" />
         </View>
       )}
-      
-      <ModalWebView
-        visible={modalVisible}
-        url={modalUrl}
-        onClose={(result) => {
-          setModalVisible(false);
-          setModalUrl('');
-          
-          // 결제 완료 후 원래 페이지 새로고침
-          if (result && (typeof result === 'object' || typeof result === 'string')) {
-            if (webViewRef.current) {
-              webViewRef.current.reload();
-            }
-          }
-        }}
-        onNavigationStateChange={(navState) => {
-          console.log('Modal navigation:', navState.url);
-        }}
-      />
     </View>
   );
 });
