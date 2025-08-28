@@ -127,6 +127,21 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
         webViewRef.current?.injectJavaScript(script);
       }
       
+      // window.open으로 외부 URL 열기 요청
+      if (data.type === 'OPEN_EXTERNAL') {
+        console.log('Opening external URL:', data.url);
+        if (data.url) {
+          // 외부 브라우저로 열기
+          Linking.openURL(data.url).catch(err => {
+            console.error('Failed to open URL:', err);
+            // 실패하면 현재 WebView에서 로드
+            if (webViewRef.current) {
+              webViewRef.current.loadUrl(data.url);
+            }
+          });
+        }
+      }
+      
       // DOM 로드 완료 시 로딩 인디케이터 숨기기
       if (data.type === 'PAGE_LOADED') {
         console.log('Page DOM loaded - hiding loading indicator');
@@ -167,6 +182,61 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
           type: 'GO_BACK'
         }));
       };
+      
+      // window.open 오버라이드 - 결제창 처리
+      const originalOpen = window.open;
+      window.open = function(url, target, features) {
+        console.log('window.open intercepted:', url, target, features);
+        
+        // 결제 관련 URL 패턴
+        const paymentPatterns = [
+          'pgapi.korpay.com',
+          'pay',
+          'payment',
+          'checkout',
+          'kcp.co.kr',
+          'inicis.com',
+          'nicepay.co.kr',
+          'danal.co.kr',
+          'toss',
+          'kakao',
+          'naver'
+        ];
+        
+        // URL이 결제 관련인지 확인
+        const isPaymentUrl = url && paymentPatterns.some(pattern => 
+          url.toLowerCase().includes(pattern)
+        );
+        
+        if (isPaymentUrl) {
+          // React Native로 메시지 전송
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'OPEN_EXTERNAL',
+            url: url
+          }));
+          
+          // 빈 객체 반환 (window.opener 호환성)
+          return {
+            closed: false,
+            document: { },
+            location: { href: url },
+            opener: window,
+            postMessage: function() { },
+            close: function() { this.closed = true; }
+          };
+        }
+        
+        // 일반 URL은 기존 window.open 사용
+        return originalOpen.call(window, url, target, features);
+      };
+      
+      // opener 객체가 있는 경우 처리
+      if (window.opener) {
+        // getFormData 같은 함수 제공
+        window.opener.getFormData = window.opener.getFormData || function() {
+          return {};
+        };
+      }
       
       // DOM 로드 완료 감지
       if (document.readyState === 'complete' || document.readyState === 'interactive') {
@@ -335,8 +405,46 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
         allowFileAccess={true}
         allowUniversalAccessFromFileURLs={true}
         allowFileAccessFromFileURLs={true}
-        setSupportMultipleWindows={false}
+        setSupportMultipleWindows={true}
         onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
+        onOpenWindow={({nativeEvent}) => {
+          // 새 창 열기 요청 처리
+          const newWindowUrl = nativeEvent.targetUrl;
+          console.log('Window open request:', newWindowUrl);
+          
+          // 결제 관련 URL인 경우 외부 브라우저나 앱으로 열기
+          if (newWindowUrl) {
+            // 결제 관련 도메인 확인
+            const paymentDomains = [
+              'pgapi.korpay.com',
+              'kcp.co.kr',
+              'inicis.com',
+              'nicepay.co.kr',
+              'danal.co.kr',
+              'kicc.co.kr',
+              'mobilians.co.kr',
+              'paygate.net',
+              'galaxia.co.kr',
+              'tosspayments.com',
+              'bootpay.co.kr',
+              'iamport.kr',
+            ];
+            
+            const isPaymentUrl = paymentDomains.some(domain => newWindowUrl.includes(domain));
+            
+            if (isPaymentUrl || newWindowUrl.includes('pay') || newWindowUrl.includes('payment')) {
+              // 외부 브라우저로 열기
+              Linking.openURL(newWindowUrl).catch(err => {
+                console.error('Failed to open URL:', err);
+                // 실패하면 현재 WebView에서 로드
+                webViewRef.current?.loadUrl(newWindowUrl);
+              });
+            } else {
+              // 일반 URL은 현재 WebView에서 로드
+              webViewRef.current?.loadUrl(newWindowUrl);
+            }
+          }
+        }}
       />
       {loading && (
         <View style={styles.loadingContainer}>
