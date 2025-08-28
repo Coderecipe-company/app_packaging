@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import {WebView} from 'react-native-webview';
 import Orientation from 'react-native-orientation-locker';
+import ModalWebView from './ModalWebView';
 
 const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
   const webViewRef = useRef(null);
@@ -17,6 +18,8 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
   const [canGoBack, setCanGoBack] = useState(false);
   const loadingTimeoutRef = useRef(null);
   const loadStartTimeRef = useRef(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalUrl, setModalUrl] = useState('');
 
   useImperativeHandle(ref, () => ({
     goBack: () => {
@@ -129,16 +132,11 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
       
       // window.open으로 외부 URL 열기 요청
       if (data.type === 'OPEN_EXTERNAL') {
-        console.log('Opening external URL:', data.url);
+        console.log('Opening payment URL in modal:', data.url);
         if (data.url) {
-          // 외부 브라우저로 열기
-          Linking.openURL(data.url).catch(err => {
-            console.error('Failed to open URL:', err);
-            // 실패하면 현재 WebView에서 로드
-            if (webViewRef.current) {
-              webViewRef.current.loadUrl(data.url);
-            }
-          });
+          // 모달 WebView에서 열기
+          setModalUrl(data.url);
+          setModalVisible(true);
         }
       }
       
@@ -412,37 +410,10 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
           const newWindowUrl = nativeEvent.targetUrl;
           console.log('Window open request:', newWindowUrl);
           
-          // 결제 관련 URL인 경우 외부 브라우저나 앱으로 열기
           if (newWindowUrl) {
-            // 결제 관련 도메인 확인
-            const paymentDomains = [
-              'pgapi.korpay.com',
-              'kcp.co.kr',
-              'inicis.com',
-              'nicepay.co.kr',
-              'danal.co.kr',
-              'kicc.co.kr',
-              'mobilians.co.kr',
-              'paygate.net',
-              'galaxia.co.kr',
-              'tosspayments.com',
-              'bootpay.co.kr',
-              'iamport.kr',
-            ];
-            
-            const isPaymentUrl = paymentDomains.some(domain => newWindowUrl.includes(domain));
-            
-            if (isPaymentUrl || newWindowUrl.includes('pay') || newWindowUrl.includes('payment')) {
-              // 외부 브라우저로 열기
-              Linking.openURL(newWindowUrl).catch(err => {
-                console.error('Failed to open URL:', err);
-                // 실패하면 현재 WebView에서 로드
-                webViewRef.current?.loadUrl(newWindowUrl);
-              });
-            } else {
-              // 일반 URL은 현재 WebView에서 로드
-              webViewRef.current?.loadUrl(newWindowUrl);
-            }
+            // 모든 새 창 요청을 모달로 처리
+            setModalUrl(newWindowUrl);
+            setModalVisible(true);
           }
         }}
       />
@@ -451,6 +422,25 @@ const WebViewContainer = forwardRef(({url, fcmToken, onUrlChange}, ref) => {
           <ActivityIndicator size="large" color="#007AFF" />
         </View>
       )}
+      
+      <ModalWebView
+        visible={modalVisible}
+        url={modalUrl}
+        onClose={(result) => {
+          setModalVisible(false);
+          setModalUrl('');
+          
+          // 결제 완료 후 원래 페이지 새로고침
+          if (result && (typeof result === 'object' || typeof result === 'string')) {
+            if (webViewRef.current) {
+              webViewRef.current.reload();
+            }
+          }
+        }}
+        onNavigationStateChange={(navState) => {
+          console.log('Modal navigation:', navState.url);
+        }}
+      />
     </View>
   );
 });
